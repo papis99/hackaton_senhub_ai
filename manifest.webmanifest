@@ -1,0 +1,11 @@
+{
+  "name": "Jokko — La voix du terrain",
+  "short_name": "Jokko",
+  "description": "Alertes, prix et annonces pour les producteurs du Sénégal.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f7f2",
+  "theme_color": "#f7f7f2",
+  "lang": "fr",
+  "icons": []
+}
