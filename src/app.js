@@ -74,6 +74,76 @@ const weatherForecast = [
   { day: 'Dim 20', emoji: '☀️', temp: '31°', label: 'Ensoleillé' },
 ];
 
+// --- Audio localisé ---
+// Les textes sont préparés dans chaque langue avant d'être envoyés à SpeechSynthesis.
+// Cela évite de parler un texte français avec une voix simplement configurée en wolof.
+const audioLanguages = {
+  fr: { label: 'Français', locale: 'fr-FR' },
+  wo: { label: 'Wolof', locale: 'wo-SN' },
+  ff: { label: 'Pulaar', locale: 'ff-SN' },
+  srr: { label: 'Sérère', locale: 'srr-SN' },
+};
+
+const localizedAlertAudio = {
+  'alert-pluie-thies': {
+    fr: 'Alerte pluie forte attendue demain entre quinze heures et dix-huit heures dans la région de Thiès. Protégez vos récoltes.',
+    wo: 'Moytul leen. Taw bu bare dina wàcc ëllëg ci Thiès, diggante fukki waxtu ak juróom-ñett waxtu. Aar leen seen mbey mi.',
+    ff: 'Ɓeydu. Ngesa mawɗo waawi waɗde janngo hakkunde sa’a 15 e sa’a 18 e Thiès. Rewtu mooftude njobdi maaɓɓe.',
+    srr: 'Moytu. Taw bu mag dina ñëw ëllëg ci Thiès, diggante waxtu fukki ak waxtu juróom-ñett. Aar seen mbey mi.',
+  },
+  'alert-mer-petite-cote': {
+    fr: 'Vigilance en mer. Vent de nord-ouest et houle forte cet après-midi. Rentrez avant dix-sept heures et portez vos gilets de sauvetage.',
+    wo: 'Moytu ci géej. Ngëlawu bëj-gànnaar ak géej gu rëy dina am tey. Dellu leen bala juróom-ñett waxtu te sol seen gilet de sauvetage.',
+    ff: 'Hoto e maayo. Henndu lesdi-gorgol e duɗɗugol mawɗo maa waɗde hande. Artuɗon hade sa’a 17 tee ɓeyduɗon gile maaɓɓe.',
+    srr: 'Moytu ci géej. Ngëlaw gu bëj-gànnaar ak géej gu mag dina am tey. Dellu bala juróom-ñett waxtu te sol gilet yi.',
+  },
+  'alert-vent-niayes': {
+    fr: 'Conseil de saison. Les conditions sont favorables à la préparation des planches. Semez tôt le matin et arrosez avec mesure.',
+    wo: 'Ndigal bu jamono. Jamono ji baax na ngir waajal tool yi. Jël leen seed ci suba te naan ndox ci ndank.',
+    ff: 'Ɗaɓɓitannde ndee. Sahaa oo moƴƴi ngam hebbude leƴƴe. Aɗa waawi eŋƴude subaka tee ndiyam e hakkille.',
+    srr: 'Ndigal bu jamono. Waxtu wi baax na ngir waajal tool yi. Seem ci suba te naan ndox ci ndank.',
+  },
+  'alert-securite-mbour': {
+    fr: 'Rappel sécurité en mer. Vérifiez le carburant, la radio, les gilets et la météo avant chaque sortie.',
+    wo: 'Fattaliku ci kaarange ci géej. Seet karbiran, radio, gilet yi ak jawwu bi bala génn bépp yoon.',
+    ff: 'Ɗaɓɓitorde kisal e maayo. Ƴeewto karburan, radio, gile maaɓɓe e jawwu ndee hade yalude.',
+    srr: 'Fattaliku ci kaarange ci géej. Seet karbiran, radio, gilet yi ak jawwu bi bala génn.',
+  },
+};
+
+const localizedAudio = {
+  producerBriefing: {
+    fr: ({ name, listings, stock, incoming, unread }) => `Bonjour ${name}. Vous avez ${listings} annonces actives avec ${stock} kilos en stock. ${incoming} nouvelles demandes vous attendent. ${unread} alertes météo ne sont pas encore ouvertes.`,
+    wo: ({ name, listings, stock, incoming, unread }) => `Salaam aleekum ${name}. Am nga ${listings} yégle yu ubbeeku ak ${stock} kilo ci sa loxo. ${incoming} laaj yu bees dañuy xaar sa tontu. ${unread} xibaaru jawwu bi ñu seetagul.`,
+    ff: ({ name, listings, stock, incoming, unread }) => `A jaaraama ${name}. Aɗa jogii ${listings} habrude udditiiɗe, e ${stock} kilo e mooftugol. ${incoming} ɗaɓɓitanɗe kesɗe njiɗi jaabawol maa. ${unread} habrude jawwu ndiyam ɗe ngalaa ƴeewtude.`,
+    srr: ({ name, listings, stock, incoming, unread }) => `Jàmm nga ${name}. Am nga ${listings} yégle yu ubbeeku ak ${stock} kilo ci sa loxo. ${incoming} laaj yu bees dañuy xaar sa tontu. ${unread} xibaaru jawwu bi ñu seetagul.`,
+  },
+  buyerBriefing: {
+    fr: ({ name }) => `Bonjour ${name}. Douze annonces fraîches sont disponibles aujourd'hui. Les oignons sont à quatre cent cinquante francs le kilo. Trois producteurs près de vous ont du stock.`,
+    wo: ({ name }) => `Salaam aleekum ${name}. Tey am na fukk ak ñaar yégle yu bees. Soblee yi ñooy ñeenti téeméeri ak juróom fukk frank ci kilo. Ñett beykat yu nekk ci sa wet am nañu alal.`,
+    ff: ({ name }) => `A jaaraama ${name}. Hannde habrude kesɗe sappo e ɗiɗi ngarii. Lekki pungel ngoodi e nder ɓeŋŋugol ɓeeyre. Beyditooɓe tati ɓadii maa jogii mooftugol.`,
+    srr: ({ name }) => `Jàmm nga ${name}. Tey am na fukk ak ñaar yégle yu bees. Soblee yi ñooy ñeenti téeméeri ak juróom fukk frank ci kilo. Ñett beykat yu nekk ci sa wet am nañu alal.`,
+  },
+  quickBriefing: {
+    fr: ({ name }) => `Bonjour ${name}. Voici votre briefing. Une pluie forte est attendue demain à Thiès. Les oignons se vendent quatre cent cinquante francs le kilo à Sangalkam. En mer, la prudence est recommandée cet après-midi.`,
+    wo: ({ name }) => `Salaam aleekum ${name}. Lii mooy sa xibaar. Taw bu bare dina wàcc ëllëg ci Thiès. Soblee yi ñu jaay nañu leen ñeenti téeméeri ak juróom fukk frank ci kilo ci Sangalkam. Ci géej, moytul leen tey ci ngoon.`,
+    ff: ({ name }) => `A jaaraama ${name}. Ɗooɗi maa ɗoo. Ngesa mawɗo waawi waɗde janngo e Thiès. Lekki pungel ngoodi e ɓeŋŋugol ɓeeyre e Sangalkam. E maayo, hoto hande e kikiiɗe.`,
+    srr: ({ name }) => `Jàmm nga ${name}. Lii mooy sa xibaar. Taw bu mag dina ñëw ëllëg ci Thiès. Soblee yi ñu jaay nañu leen ñeenti téeméeri ak juróom fukk frank ci kilo ci Sangalkam. Ci géej, moytu leen tey ci ngoon.`,
+  },
+  priceSummary: {
+    fr: () => 'Les prix du jour. Oignon violet, quatre cent cinquante francs le kilo. Tomate fraîche, six cents francs le kilo. Carotte, cinq cents francs le kilo. Sardine, mille huit cents francs le kilo.',
+    wo: () => 'Njëg yu tey. Soblee violet, ñeenti téeméeri ak juróom fukk frank ci kilo. Tomaat, juróom téeméeri ak benn frank ci kilo. Karot, juróom téeméeri frank ci kilo. Sardiin, junni ak juróom-ñett téeméeri frank ci kilo.',
+    ff: () => 'Ɓeŋŋe hannde. Lekki pungel, ɓeeyre e ɓeŋŋugol kilo. Tomat, jeegom ɓeŋŋugol kilo. Karot, sappo e jowi ɓeŋŋugol kilo. Sardin, junere e jeeɗiɗi ɓeŋŋugol kilo.',
+    srr: () => 'Njëg yu tey. Soblee violet, ñeenti téeméeri ak juróom fukk frank ci kilo. Tomaat, juróom téeméeri ak benn frank ci kilo. Karot, juróom téeméeri frank ci kilo. Sardiin, junni ak juróom-ñett téeméeri frank ci kilo.',
+  },
+  price: {
+    fr: ({ product, price, place }) => `Le prix moyen du ${product} est de ${price} au marché de ${place}.`,
+    wo: ({ product, price, place }) => `Njëgu ${product} mooy ${price} ci marse bi ci ${place}.`,
+    ff: ({ product, price, place }) => `Ɓeŋŋugol ${product} ko ${price} e luumo ${place}.`,
+    srr: ({ product, price, place }) => `Njëgu ${product} mooy ${price} ci marse bi ci ${place}.`,
+  },
+};
+
 // --- State ---
 const ls = {
   get(k, fallback) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
@@ -147,6 +217,48 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' }[char]));
 }
 function formatPhoneForTel(phone) { return phone.replaceAll(' ', '').replaceAll('+', ''); }
+function getAudioLanguageKey() { return audioLanguages[state.language] ? state.language : 'fr'; }
+function getAudioLanguage() { return audioLanguages[getAudioLanguageKey()]; }
+function audioLanguageLabel() { return getAudioLanguage().label; }
+function audioForAlert(alert) {
+  const language = getAudioLanguageKey();
+  return localizedAlertAudio[alert.id]?.[language] || localizedAlertAudio[alert.id]?.fr || alert.audio;
+}
+function localizedAudioText(button, fallback = '') {
+  const key = button?.dataset.audioKey;
+  const user = state.currentUser;
+  if (!key || !user) return fallback;
+  if (key === 'producer-briefing') {
+    return localizedAudio.producerBriefing[getAudioLanguageKey()]?.({
+      name: user.name,
+      listings: button.dataset.audioListings || '0',
+      stock: button.dataset.audioStock || '0',
+      incoming: button.dataset.audioIncoming || '0',
+      unread: button.dataset.audioUnread || '0',
+    }) || fallback;
+  }
+  if (key === 'buyer-briefing') {
+    return localizedAudio.buyerBriefing[getAudioLanguageKey()]?.({ name: user.name }) || fallback;
+  }
+  if (key === 'quick-briefing') {
+    return localizedAudio.quickBriefing[getAudioLanguageKey()]?.({ name: user.name }) || fallback;
+  }
+  if (key === 'price-summary') {
+    return localizedAudio.priceSummary[getAudioLanguageKey()]?.() || fallback;
+  }
+  if (key === 'weather-alert') {
+    const alert = weatherAlerts.find((item) => item.id === button.dataset.audioAlert);
+    return alert ? audioForAlert(alert) : fallback;
+  }
+  if (key === 'price') {
+    return localizedAudio.price[getAudioLanguageKey()]?.({
+      product: button.dataset.audioProduct || '',
+      price: button.dataset.audioPriceValue || '',
+      place: button.dataset.audioPlace || '',
+    }) || fallback;
+  }
+  return fallback;
+}
 
 
 function todayLabel() {
@@ -494,9 +606,9 @@ function getNavConfig() {
   if (role === 'producteur') {
     return [
       { id: 'dashboard', label: 'Tableau de bord', icon: 'grid' },
+      { id: 'weather', label: 'Météo & alertes', icon: 'cloud-sun', badge: unreadAlerts().length, urgent: unreadAlerts().length > 0 },
       { id: 'products', label: 'Mes produits', icon: 'store', badge: ownCount },
       { id: 'market', label: 'Marché local', icon: 'search' },
-      { id: 'weather', label: 'Météo & alertes', icon: 'cloud-sun', badge: unreadAlerts().length, urgent: unreadAlerts().length > 0 },
       { id: 'voice', label: 'Ma voix', icon: 'mic', new: true },
       { id: 'orders', label: 'Demandes', icon: 'phone', badge: incoming },
     ];
@@ -535,9 +647,9 @@ function renderAppShell(contentHtml) {
     if (role === 'producteur') {
       return `
         <button class="bottom-nav-item ${state.view === 'dashboard' ? 'active' : ''}" data-view="dashboard"><span data-icon="grid"></span>Accueil</button>
-        <button class="bottom-nav-item ${state.view === 'products' ? 'active' : ''}" data-view="products"><span data-icon="store"></span>Produits</button>
-        <button class="bottom-nav-center" data-open-post aria-label="Publier"><span data-icon="plus"></span></button>
         <button class="bottom-nav-item ${state.view === 'weather' ? 'active' : ''}" data-view="weather"><span data-icon="cloud-sun"></span>${weatherUnread ? `<i class="bottom-nav-badge">${weatherUnread}</i>` : ''}Météo</button>
+        <button class="bottom-nav-center" data-open-post aria-label="Publier"><span data-icon="plus"></span></button>
+        <button class="bottom-nav-item ${state.view === 'products' ? 'active' : ''}" data-view="products"><span data-icon="store"></span>Produits</button>
         <button class="bottom-nav-item ${state.view === 'profile' ? 'active' : ''}" data-view="profile"><span data-icon="user"></span>Profil</button>
       `;
     } else {
@@ -602,13 +714,14 @@ function renderAppShell(contentHtml) {
         <div class="topbar-actions">
           <div class="connection-chip ${state.online ? '' : 'offline'}"><span class="status-dot"></span><span class="connection-label">${state.online ? 'En ligne' : 'Hors ligne'}</span></div>
           ${state.deferredInstall ? `<button class="install-chip" id="install-app">Installer</button>` : ''}
-          <div class="language-control">
+          <label class="language-control" title="Langue des audios">
             <span data-icon="globe"></span>
-            <select id="language-select" aria-label="Choisir la langue">
+            <span class="language-control-label">Langue audio</span>
+            <select id="language-select" aria-label="Choisir la langue des audios">
               <option value="fr">Français</option><option value="wo">Wolof</option><option value="ff">Pulaar</option><option value="srr">Sérère</option>
             </select>
             <span data-icon="chevron-down"></span>
-          </div>
+          </label>
           <div class="notif-wrap">
             <button class="icon-button notification-button ${notifCount ? 'has-unread' : ''}" id="notification-button" aria-label="Notifications">
               <span data-icon="bell"></span>
@@ -675,7 +788,7 @@ function dashboardProducteurView() {
     </div>
     <article class="briefing-card card briefing-solo">
       <div class="briefing-content"><p class="eyebrow">Le point du matin · 2 min</p><h2>Votre marché vous attend aujourd'hui.</h2><p class="briefing-copy">Météo agricole, prix du marché et demandes des vendeurs : votre résumé vocal est prêt dans votre langue.</p></div>
-      <div class="briefing-bottom"><button class="audio-main" data-listen-text="Bonjour ${user.name}. Vous avez ${myListings.length} annonces actives avec ${myStock} kilos en stock. ${incoming.length} nouvelles demandes vous attendent. ${unread.length} alertes météo ne sont pas encore ouvertes."><span class="audio-play">${icon('play')}</span><span class="audio-label"><span>Briefing producteur</span><small>Français · 01:42</small></span><span class="waveform"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></button><div class="language-pills"><span>Wolof</span><span>Pulaar</span><span>Sérère</span></div></div>
+      <div class="briefing-bottom"><button class="audio-main" data-audio-key="producer-briefing" data-audio-listings="${myListings.length}" data-audio-stock="${myStock}" data-audio-incoming="${incoming.length}" data-audio-unread="${unread.length}" aria-label="Écouter le briefing en ${audioLanguageLabel()}"><span class="audio-play">${icon('play')}</span><span class="audio-label"><span>Briefing producteur</span><small>${audioLanguageLabel()} · 01:42</small></span><span class="waveform"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></button><div class="language-pills"><span>Wolof</span><span>Pulaar</span><span>Sérère</span></div></div>
     </article>
     <div class="stats-grid">
       <article class="stat-card"><div class="stat-icon">${icon('store')}</div><div class="stat-copy"><span>Mes annonces</span><strong>${myListings.length} actives</strong><small>${myStock} kg en stock</small></div></article>
@@ -722,7 +835,7 @@ function dashboardVendeurView() {
     <div class="hero-grid">
       <article class="briefing-card card vendeur-theme">
         <div class="briefing-content"><p class="eyebrow">Opportunités du jour</p><h2>12 annonces fraîches près de Dakar.</h2><p class="briefing-copy">Oignons, tomates, sardines et thiof débarqués ce matin. Les prix sont en hausse de 8% sur l'oignon, c'est le moment de stocker.</p></div>
-        <div class="briefing-bottom"><button class="audio-main" data-listen-text="Bonjour ${user.name}. Douze annonces fraîches sont disponibles aujourd'hui. Les oignons sont à quatre cent cinquante francs le kilo. Trois producteurs près de vous ont du stock."><span class="audio-play orange">${icon('play')}</span><span class="audio-label"><span>Briefing acheteur</span><small>Français · 01:18</small></span><span class="waveform"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></button><div class="language-pills"><span>Wolof</span><span>Pulaar</span></div></div>
+        <div class="briefing-bottom"><button class="audio-main" data-audio-key="buyer-briefing" aria-label="Écouter le briefing en ${audioLanguageLabel()}"><span class="audio-play orange">${icon('play')}</span><span class="audio-label"><span>Briefing acheteur</span><small>${audioLanguageLabel()} · 01:18</small></span><span class="waveform"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></button><div class="language-pills"><span>Wolof</span><span>Pulaar</span></div></div>
       </article>
       <article class="weather-summary card" style="background:#fff7e8">
         <div class="weather-top"><span>${icon('map-pin')} Dakar & alentours</span><span style="background:var(--orange-pale);color:#8a5a22;padding:3px 7px;border-radius:5px;font-size:8px">Marché actif</span></div>
@@ -808,7 +921,7 @@ function marketView() {
 function weatherView() {
   const weather = getWeatherNow();
   const alerts = relevantAlerts();
-  return `<section class="view inner-view weather-view"><div class="view-head"><div><p class="eyebrow">Informations officielles · ${state.online ? 'En ligne' : 'Hors ligne'}</p><h1>Météo & alertes</h1><p class="subheading">Messages courts, utiles, disponibles à l’écoute. Conservés sur votre téléphone même sans réseau.</p></div><div class="header-actions"><button class="outline-button" id="weather-language">${icon('globe')} Wolof · Pulaar · Sérère</button></div></div>
+  return `<section class="view inner-view weather-view"><div class="view-head"><div><p class="eyebrow">Informations officielles · ${state.online ? 'En ligne' : 'Hors ligne'}</p><h1>Météo & alertes</h1><p class="subheading">Messages courts, utiles, disponibles à l’écoute. Conservés sur votre téléphone même sans réseau.</p></div><div class="header-actions"><button class="outline-button weather-language-status" id="weather-language" type="button" title="Changer la langue des audios">${icon('globe')} Audio : ${audioLanguageLabel()}</button></div></div>
     ${state.online ? '' : `<div class="weather-offline-note">${icon('cloud-sun')} Hors ligne — vous consultez la dernière météo enregistrée (${timeAgo(state.lastSync)}).</div>`}
     <div class="weather-now">
       <article class="weather-summary card">
@@ -821,7 +934,7 @@ function weatherView() {
         <div class="forecast-row" style="padding-bottom:18px">${weatherForecast.map((day) => `<div class="forecast-day ${day.today ? 'today' : ''}"><span>${day.day}</span><em>${day.emoji}</em><strong>${day.temp}</strong><small>${day.label}</small></div>`).join('')}</div>
       </article>
     </div>
-    <div class="card page-card"><div class="card-header"><div><h2 class="card-title">Alertes récentes</h2><p class="card-subtitle">Source : ANACIM · ${alerts.length} messages conservés hors ligne</p></div><div class="header-icon">${icon('cloud-sun')}</div></div><div class="large-alert-list">${alerts.map((alert) => `<article class="large-alert ${alert.tone === 'danger' ? 'critical' : ''}"><div class="alert-marker ${alert.tone}">${icon(alert.icon)}</div><div class="large-alert-content"><h3>${alert.title}</h3><p>${alert.text}</p><div class="alert-meta-row"><span>${icon('map-pin')} ${alert.place}</span><span class="tag ${alert.tagTone}">${alert.tag}</span></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:11px"><span style="color:#a2ada5;font-size:9px">${alert.time}</span><button class="mini-audio" data-listen-text="${escapeHtml(alert.audio)}">${icon('play')}<span>Écouter</span></button></div></div></article>`).join('')}</div></div>
+    <div class="card page-card"><div class="card-header"><div><h2 class="card-title">Alertes récentes</h2><p class="card-subtitle">Source : ANACIM · ${alerts.length} messages conservés hors ligne</p></div><div class="header-icon">${icon('cloud-sun')}</div></div><div class="large-alert-list">${alerts.map((alert) => `<article class="large-alert ${alert.tone === 'danger' ? 'critical' : ''}"><div class="alert-marker ${alert.tone}">${icon(alert.icon)}</div><div class="large-alert-content"><h3>${alert.title}</h3><p>${alert.text}</p><div class="alert-meta-row"><span>${icon('map-pin')} ${alert.place}</span><span class="tag ${alert.tagTone}">${alert.tag}</span></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:11px"><span style="color:#a2ada5;font-size:9px">${alert.time}</span><button class="mini-audio" data-audio-key="weather-alert" data-audio-alert="${alert.id}" aria-label="Écouter cette alerte en ${audioLanguageLabel()}">${icon('play')}<span>Écouter</span></button></div></div></article>`).join('')}</div></div>
   </section>`;
 }
 
@@ -837,11 +950,11 @@ const priceData = [
 ];
 function priceTableRows() {
   const filtered = priceData.filter((row) => state.priceFilter === 'all' || row[6] === state.priceFilter);
-  return filtered.map((row) => `<tr><td><div class="product-cell"><span class="product-emoji ${row[6] === 'peche' ? 'fish' : row[1] === '🍅' ? 'red' : row[1] === '🥕' ? 'orange' : ''}">${row[1]}</span><div><strong>${row[0]}</strong><small>${row[2]}</small></div></div></td><td class="price-value">${row[3]}</td><td><span class="trend ${row[5]}">${icon('arrow-right')} ${row[4]}</span></td><td><button class="mini-audio" data-listen-text="Le prix moyen du ${row[0]} est de ${row[3]} au marché de ${row[2]}.">${icon('play')}<span>Audio</span></button></td></tr>`).join('');
+  return filtered.map((row) => `<tr><td><div class="product-cell"><span class="product-emoji ${row[6] === 'peche' ? 'fish' : row[1] === '🍅' ? 'red' : row[1] === '🥕' ? 'orange' : ''}">${row[1]}</span><div><strong>${row[0]}</strong><small>${row[2]}</small></div></div></td><td class="price-value">${row[3]}</td><td><span class="trend ${row[5]}">${icon('arrow-right')} ${row[4]}</span></td><td><button class="mini-audio" data-audio-key="price" data-audio-product="${escapeHtml(row[0])}" data-audio-price-value="${escapeHtml(row[3])}" data-audio-place="${escapeHtml(row[2])}" aria-label="Écouter le prix en ${audioLanguageLabel()}">${icon('play')}<span>Audio</span></button></td></tr>`).join('');
 }
 function pricesView() {
   const role = state.currentUser.role;
-  return `<section class="view inner-view prices-view"><div class="view-head"><div><p class="eyebrow ${role === 'vendeur' ? 'vendeur' : ''}">Transparence · Accès libre</p><h1>Prix du marché</h1><p class="subheading">Comparez les prix près de chez vous avant de vendre ou d’acheter. Écoutez chaque prix dans votre langue.</p></div><button class="outline-button" id="price-audio">${icon('play')} Écouter les prix</button></div>
+  return `<section class="view inner-view prices-view"><div class="view-head"><div><p class="eyebrow ${role === 'vendeur' ? 'vendeur' : ''}">Transparence · Accès libre</p><h1>Prix du marché</h1><p class="subheading">Comparez les prix près de chez vous avant de vendre ou d’acheter. Écoutez chaque prix dans votre langue.</p></div><button class="outline-button" id="price-audio" data-audio-key="price-summary" aria-label="Écouter les prix en ${audioLanguageLabel()}">${icon('play')} Écouter les prix · ${audioLanguageLabel()}</button></div>
     <div class="filter-bar"><div class="search-box">${icon('search')}<input id="price-search" type="search" placeholder="Rechercher un produit ou un marché…" aria-label="Rechercher un produit ou un marché" /></div><button class="filter-pill ${state.priceFilter === 'all' ? 'active' : ''} ${role === 'vendeur' ? 'vendeur' : ''}" data-price-filter="all">Tous</button><button class="filter-pill ${state.priceFilter === 'agriculture' ? 'active' : ''} ${role === 'vendeur' ? 'vendeur' : ''}" data-price-filter="agriculture">Agriculture</button><button class="filter-pill ${state.priceFilter === 'peche' ? 'active' : ''} ${role === 'vendeur' ? 'vendeur' : ''}" data-price-filter="peche">Pêche</button><select class="select-box" aria-label="Choisir une zone"><option>Dakar & alentours</option><option>Thiès</option><option>Saint-Louis</option><option>Petite Côte</option></select></div>
     <div class="card page-card"><div class="card-header"><div><h2 class="card-title">Prix moyens aujourd’hui</h2><p class="card-subtitle">Relevés communautaires · ${priceData.length} produits suivis</p></div><div class="header-icon ${role === 'vendeur' ? 'orange' : ''}">${icon('chart')}</div></div><div style="overflow-x:auto"><table class="price-table full-price-table"><thead><tr><th>Produit</th><th>Prix moyen</th><th>Évolution / 7 jours</th><th>Audio</th></tr></thead><tbody id="price-table-body">${priceTableRows()}</tbody></table></div></div>
   </section>`;
@@ -981,19 +1094,31 @@ function openContact(item) {
 }
 
 // --- Audio ---
+function findSpeechVoice(locale) {
+  if (!window.speechSynthesis?.getVoices) return null;
+  const voices = window.speechSynthesis.getVoices();
+  const wanted = locale.toLowerCase();
+  const base = wanted.split('-')[0];
+  return voices.find((voice) => voice.lang.toLowerCase() === wanted)
+    || voices.find((voice) => voice.lang.toLowerCase().startsWith(`${base}-`))
+    || null;
+}
 function playAudio(text, button) {
   const wasPlaying = button.classList.contains('playing');
   document.querySelectorAll('.mini-audio.playing, .audio-main.playing, .primary-button.playing, .outline-button.playing').forEach((el) => resetAudioButton(el));
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   if (wasPlaying) return;
+  const localizedText = localizedAudioText(button, text);
+  const language = getAudioLanguage();
   button.dataset.defaultHtml = button.innerHTML;
   button.classList.add('playing');
   if (button.classList.contains('mini-audio')) button.innerHTML = `${icon('pause')}<span>Lecture…</span>`;
   else if (button.querySelector('.audio-play')) button.querySelector('.audio-play').innerHTML = icon('pause');
   else button.innerHTML = `${icon('pause')} Lecture…`;
   if (window.speechSynthesis) {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = { fr: 'fr-FR', wo: 'wo-SN', ff: 'ff-SN', srr: 'srr-SN' }[state.language] || 'fr-FR';
+    const utterance = new SpeechSynthesisUtterance(localizedText);
+    utterance.lang = language.locale;
+    utterance.voice = findSpeechVoice(language.locale) || null;
     utterance.rate = .92;
     utterance.onend = () => resetAudioButton(button);
     utterance.onerror = () => resetAudioButton(button);
@@ -1122,8 +1247,8 @@ document.addEventListener('click', (event) => {
   if (logoutBtn) { logout(); return; }
 
   // Audio
-  const audio = event.target.closest('[data-listen-text]');
-  if (audio) { playAudio(audio.dataset.listenText, audio); return; }
+  const audio = event.target.closest('[data-listen-text], [data-audio-key]');
+  if (audio) { playAudio(audio.dataset.listenText || '', audio); return; }
 
   // Favorites
   const favBtn = event.target.closest('[data-fav]');
@@ -1162,14 +1287,25 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  // Language shortcut from the weather page
+  if (event.target.closest('#weather-language')) {
+    const select = document.querySelector('#language-select');
+    if (select) {
+      select.focus();
+      try { select.showPicker?.(); } catch {}
+    }
+    return;
+  }
+
   // Quick actions
   if (event.target.closest('#quick-listen')) {
     const button = event.target.closest('#quick-listen');
-    playAudio(`Bonjour ${state.currentUser.name}. Voici votre briefing du mardi quinze septembre. Une pluie forte est attendue demain à Thiès. Les oignons se vendent quatre cent cinquante francs le kilo à Sangalkam. En mer, la prudence est recommandée cet après-midi.`, button);
+    button.dataset.audioKey = 'quick-briefing';
+    playAudio('', button);
     return;
   }
   if (event.target.closest('#price-audio')) {
-    playAudio('Les prix du jour. Oignon violet, quatre cent cinquante francs le kilo. Tomate fraîche, six cents francs le kilo. Carotte, cinq cents francs le kilo. Sardine, mille huit cents francs le kilo.', event.target.closest('#price-audio'));
+    playAudio('', event.target.closest('#price-audio'));
     return;
   }
   if (event.target.closest('[data-open-post]')) {
@@ -1422,10 +1558,12 @@ document.addEventListener('submit', (event) => {
 
 document.addEventListener('change', (event) => {
   if (event.target.id === 'language-select') {
-    state.language = event.target.value;
+    state.language = audioLanguages[event.target.value] ? event.target.value : 'fr';
     saveAll();
-    const names = { fr: 'Français', wo: 'Wolof', ff: 'Pulaar', srr: 'Sérère' };
-    showToast(`Les prochains audios seront préparés en ${names[state.language]}.`, 'success');
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    const selectedLanguage = audioLanguageLabel();
+    render();
+    showToast(`Les prochains audios seront lus en ${selectedLanguage}.`, 'success');
   }
 });
 
