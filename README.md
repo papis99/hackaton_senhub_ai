@@ -37,9 +37,9 @@ npm run preview
 
 ### Producteur / Pêcheur
 - **Tableau de bord** : briefing vocal personnalisé (stock + demandes), météo locale, stats annonces/stock/demandes, dernières demandes, mes produits en ligne
-- **Mes produits** : CRUD complet de ses annonces (modifier / supprimer), stock total, bouton publier
+- **Météo & alertes** : premier onglet après le tableau de bord, alertes ANACIM avec audio TTS localisé
+- **Mes produits** : CRUD complet de ses annonces (modifier / supprimer), ajout de 1 à 4 photos compressées, carrousel automatique et détail produit en popup
 - **Marché local** : veille concurrentielle (voir ce que vendent les autres)
-- **Météo & alertes** : alertes ANACIM avec audio TTS
 - **Ma voix** : publication vocale ASR simulée → préremplit le formulaire → publie
 - **Demandes** : liste des acheteurs intéressés (inquiries reçues) avec rappel téléphonique
 - **Profil** : infos, stats, type d'activité, déconnexion
@@ -57,10 +57,10 @@ npm run preview
 
 - **PWA** : `manifest.webmanifest` avec `display: standalone`, thème `#116b4f`, icône SVG
 - **Responsive** : sidebar desktop, **bottom navigation** mobile (5 items)
-  - Producteur : Accueil, Produits, bouton central Publier (+), Marché, Profil
+  - Producteur : Accueil, Météo, bouton central Publier (+), Produits, Profil
   - Vendeur : Accueil, Marché, bouton central Prix (chart), Favoris, Profil
 - **Offline-first** : carte offline, bouton synchroniser, données en localStorage, toasts
-- **Audio** : `SpeechSynthesis` pour briefing, alertes, prix (langue sélectionnable FR/WO/FF/SRR)
+- **Audio** : sélecteur visible en haut pour choisir Français, Wolof, Pulaar ou Sérère ; scripts audio localisés pour briefings, alertes et prix via `SpeechSynthesis` (`fr-FR` / `wo-SN` / `ff-SN` / `srr-SN`)
 - **Vocal** : simulation enregistrement avec animation dots
 
 ## Structure
