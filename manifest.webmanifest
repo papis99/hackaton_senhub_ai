@@ -1,11 +1,20 @@
 {
   "name": "Jokko — La voix du terrain",
   "short_name": "Jokko",
-  "description": "Alertes, prix et annonces pour les producteurs du Sénégal.",
+  "description": "App mobile PWA pour producteurs, pêcheurs et vendeurs du Sénégal. Deux interfaces dédiées, publication vocale, prix transparents, hors ligne.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f7f7f2",
-  "theme_color": "#f7f7f2",
+  "theme_color": "#116b4f",
   "lang": "fr",
-  "icons": []
+  "orientation": "portrait",
+  "categories": ["business", "food", "utilities"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='10' fill='%23116b4f'/%3E%3Ccircle cx='22' cy='8' r='6' fill='%23d6f35a'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
