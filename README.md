@@ -38,7 +38,7 @@ npm run preview
 ### Producteur / Pêcheur
 - **Tableau de bord** : briefing vocal personnalisé (stock + demandes), météo locale, stats annonces/stock/demandes, dernières demandes, mes produits en ligne
 - **Météo & alertes** : premier onglet après le tableau de bord, alertes ANACIM avec audio TTS localisé
-- **Mes produits** : CRUD complet de ses annonces (modifier / supprimer), stock total, bouton publier
+- **Mes produits** : CRUD complet de ses annonces (modifier / supprimer), ajout de 1 à 4 photos compressées, carrousel automatique et détail produit en popup
 - **Marché local** : veille concurrentielle (voir ce que vendent les autres)
 - **Ma voix** : publication vocale ASR simulée → préremplit le formulaire → publie
 - **Demandes** : liste des acheteurs intéressés (inquiries reçues) avec rappel téléphonique

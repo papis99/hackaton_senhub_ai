@@ -454,15 +454,58 @@ function logout() {
   showToast('Déconnecté. À bientôt !', 'success');
 }
 
-// --- Market card ---
-function marketCard(item, opts = {}) {
+// --- Product media and market cards ---
+function getProductPhotos(item) {
+  return Array.isArray(item?.photos) ? item.photos.filter(Boolean).slice(0, 4) : [];
+}
+
+function productVisual(item, extraClass = '') {
+  const photos = getProductPhotos(item);
   const imageClass = item.image ? ` ${item.image}` : '';
+  const safeName = escapeHtml(item.name || 'Produit');
+  if (!photos.length) {
+    return `<div class="market-image${imageClass}${extraClass ? ` ${extraClass}` : ''}" aria-hidden="true">${item.emoji || '📦'}</div>`;
+  }
+  return `<div class="product-photo-carousel${extraClass ? ` ${extraClass}` : ''}" data-photo-carousel="${item.id}" aria-label="Photos de ${safeName}">
+    ${photos.map((photo, index) => `<img class="product-photo-slide ${index === 0 ? 'active' : ''}" src="${escapeHtml(photo)}" alt="${safeName} — photo ${index + 1} sur ${photos.length}" data-photo-index="${index}" />`).join('')}
+    ${photos.length > 1 ? `<span class="product-photo-count">${photos.length} photos</span><span class="product-photo-dots">${photos.map((_, index) => `<i class="${index === 0 ? 'active' : ''}"></i>`).join('')}</span>` : ''}
+  </div>`;
+}
+
+const photoCarouselTimers = new Set();
+function stopPhotoCarousels() {
+  photoCarouselTimers.forEach((timer) => clearInterval(timer));
+  photoCarouselTimers.clear();
+}
+function startPhotoCarousels(root = document) {
+  root.querySelectorAll('[data-photo-carousel]').forEach((carousel) => {
+    const slides = [...carousel.querySelectorAll('.product-photo-slide')];
+    if (slides.length < 2) return;
+    let current = 0;
+    const showSlide = (next) => {
+      current = next % slides.length;
+      slides.forEach((slide, index) => slide.classList.toggle('active', index === current));
+      carousel.querySelectorAll('.product-photo-dots i').forEach((dot, index) => dot.classList.toggle('active', index === current));
+    };
+    const timer = setInterval(() => {
+      if (!carousel.isConnected) {
+        clearInterval(timer);
+        photoCarouselTimers.delete(timer);
+        return;
+      }
+      showSlide(current + 1);
+    }, 2800);
+    photoCarouselTimers.add(timer);
+  });
+}
+
+function marketCard(item, opts = {}) {
   const fav = isFavorite(item.id);
   const isOwner = state.currentUser && item.ownerId === state.currentUser.id;
   const showFav = state.currentUser?.role === 'vendeur' && !isOwner;
-  return `<article class="market-card" data-type="${item.type}" data-search="${escapeHtml(`${item.name} ${item.location} ${item.seller}`.toLowerCase())}">
+  return `<article class="market-card" data-product-id="${item.id}" data-type="${item.type}" data-search="${escapeHtml(`${item.name} ${item.location} ${item.seller}`.toLowerCase())}" role="button" tabindex="0" aria-label="Voir le détail de ${escapeHtml(item.name)}">
     <div class="market-card-top">
-      <div class="market-image${imageClass}">${item.emoji}</div>
+      ${productVisual(item)}
       <div style="display:flex;gap:6px;align-items:center">
         ${showFav ? `<button class="fav-button ${fav ? 'active' : ''}" data-fav="${item.id}" aria-label="Favori">${icon(fav ? 'heart' : 'bookmark')}</button>` : ''}
         <span class="condition-label">${escapeHtml(item.condition)}</span>
@@ -808,8 +851,8 @@ function dashboardProducteurView() {
       <article class="card price-card"><div class="card-header"><div><h2 class="card-title">Mes produits en ligne</h2><p class="card-subtitle">${myListings.length} annonces publiées</p></div><button class="text-button" data-view="products">Gérer ${icon('arrow-right')}</button></div>
         <div style="padding:0 21px 16px;display:grid;gap:10px">
           ${myListings.slice(0,2).map(item => `
-            <div style="display:flex;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:10px">
-              <div class="market-image" style="width:42px;height:42px;font-size:22px">${item.emoji}</div>
+            <div class="dashboard-product-row" data-product-id="${item.id}" role="button" tabindex="0" aria-label="Voir le détail de ${escapeHtml(item.name)}">
+              ${productVisual(item, 'dashboard-product-image')}
               <div style="flex:1"><strong style="font-size:11px;color:#3c4c43">${escapeHtml(item.name)}</strong><div style="font-size:9px;color:#9aa59d">${escapeHtml(item.quantity)} · ${escapeHtml(item.price)} ${escapeHtml(item.unit)}</div></div>
               <span class="tag">${item.stock} kg</span>
             </div>
@@ -890,8 +933,8 @@ function productsView() {
     </div>
     ${myListings.length === 0 ? `<div class="card saved-empty"><div class="empty-icon">${icon('store')}</div><h3>Aucun produit pour le moment</h3><p>Publiez votre première récolte ou pêche pour être visible par les vendeurs de votre zone.</p><button class="primary-button" data-open-post>${icon('plus')} Publier mon premier produit</button></div>` : `
       <div class="market-view-grid">${myListings.map(item => `
-        <article class="market-card">
-          <div class="market-card-top"><div class="market-image ${item.image || ''}">${item.emoji}</div><span class="condition-label">${escapeHtml(item.condition)}</span></div>
+        <article class="market-card" data-product-id="${item.id}" role="button" tabindex="0" aria-label="Voir le détail de ${escapeHtml(item.name)}">
+          <div class="market-card-top">${productVisual(item)}<span class="condition-label">${escapeHtml(item.condition)}</span></div>
           <h3>${escapeHtml(item.name)}</h3>
           <div class="market-origin">${icon('map-pin')}${escapeHtml(item.location)}</div>
           <div style="margin-top:10px;display:flex;gap:6px"><span class="tag">${item.stock} kg en stock</span><span class="tag orange">${escapeHtml(item.price)} ${escapeHtml(item.unit)}</span></div>
@@ -1062,11 +1105,72 @@ function profileView() {
   </section>`;
 }
 
+// --- Product photos and modals ---
+function photoPreviewMarkup(photos) {
+  if (!photos.length) return `<div class="photo-preview-empty">Aucune photo sélectionnée</div>`;
+  return photos.map((photo, index) => `<div class="photo-preview-item"><img src="${escapeHtml(photo)}" alt="Aperçu de la photo ${index + 1}" /><span>${index + 1}</span></div>`).join('');
+}
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Impossible de lire cette photo.'));
+    reader.readAsDataURL(file);
+  });
+}
+function compressPhoto(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const maxSide = 1400;
+      const scale = Math.min(1, maxSide / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
+      canvas.height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
+      const context = canvas.getContext('2d');
+      if (!context) {
+        reject(new Error('Votre navigateur ne peut pas traiter cette photo.'));
+        return;
+      }
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', .82));
+    };
+    image.onerror = () => reject(new Error('Cette photo ne peut pas être traitée.'));
+    image.src = dataUrl;
+  });
+}
+async function prepareProductPhotos(files) {
+  if (files.length > 4) throw new Error('Vous pouvez ajouter 4 photos maximum.');
+  if (files.some((file) => !file.type.startsWith('image/'))) throw new Error('Seuls les fichiers image sont acceptés.');
+  const dataUrls = await Promise.all(files.map(fileToDataUrl));
+  return Promise.all(dataUrls.map(compressPhoto));
+}
+function updatePostPhotoPreview(photos) {
+  const preview = document.querySelector('#post-photo-preview');
+  if (!preview) return;
+  preview.innerHTML = photoPreviewMarkup(photos);
+  preview.classList.toggle('has-photos', photos.length > 0);
+  const count = document.querySelector('#post-photo-count');
+  if (count) count.textContent = `${photos.length}/4 photo${photos.length > 1 ? 's' : ''}`;
+}
+
+function openProductDetail(item) {
+  const photos = getProductPhotos(item);
+  const isOwner = state.currentUser && item.ownerId === state.currentUser.id;
+  const typeLabel = item.type === 'peche' ? 'Pêche' : item.type === 'agriculture' ? 'Agriculture' : 'Agriculture & pêche';
+  const gallery = photos.length
+    ? `<div class="product-detail-gallery"><div class="product-detail-main"><img id="detail-main-image" src="${escapeHtml(photos[0])}" alt="${escapeHtml(item.name)} — photo 1 sur ${photos.length}" /><span class="product-detail-count">${photos.length} photo${photos.length > 1 ? 's' : ''}</span></div><div class="product-detail-thumbs" aria-label="Toutes les photos du produit">${photos.map((photo, index) => `<button type="button" class="detail-photo-thumb ${index === 0 ? 'active' : ''}" data-detail-photo="${item.id}" data-photo-index="${index}" aria-label="Afficher la photo ${index + 1}"><img src="${escapeHtml(photo)}" alt="Photo ${index + 1} de ${escapeHtml(item.name)}" /></button>`).join('')}</div></div>`
+    : `<div class="product-detail-gallery"><div class="product-detail-main product-detail-no-photo"><span>${item.emoji || '📦'}</span><p>Pas encore de photo</p></div></div>`;
+  document.querySelector('#modal-root').innerHTML = `<div class="modal-backdrop" data-close-modal><div class="modal product-detail-modal" role="dialog" aria-modal="true" aria-labelledby="product-detail-title"><div class="modal-header"><div><p class="eyebrow">Détail du produit</p><h2 id="product-detail-title">${escapeHtml(item.name)}</h2><p>${escapeHtml(item.condition)} · ${escapeHtml(typeLabel)}</p></div><button class="modal-close" data-close-modal aria-label="Fermer">${icon('close')}</button></div>${gallery}<div class="product-detail-info"><div class="product-detail-price">${escapeHtml(item.price)} <small>${escapeHtml(item.unit)}</small></div><div class="product-detail-grid"><div><span>Disponibilité</span><strong>${escapeHtml(item.quantity)}</strong></div><div><span>Lieu</span><strong>${escapeHtml(item.location)}</strong></div><div><span>Producteur</span><strong>${escapeHtml(item.seller)}</strong></div><div><span>Activité</span><strong>${escapeHtml(typeLabel)}</strong></div></div></div><div class="product-detail-actions">${isOwner ? `<button class="outline-button" data-edit="${item.id}">${icon('edit')} Modifier</button>` : `<button class="primary-button ${state.currentUser?.role === 'vendeur' ? 'orange-button' : ''}" data-interest="${item.id}">${icon('phone')} ${state.currentUser?.role === 'vendeur' ? 'Commander' : 'Contacter'}</button>`}<button class="outline-button" data-close-modal>Fermer</button></div></div></div>`;
+  hydrateIcons(document.querySelector('#modal-root'));
+}
+
 // --- Modals ---
 function openPostModal(editItem = null) {
   const isEdit = !!editItem;
+  const existingPhotos = getProductPhotos(editItem);
   state.editingListing = editItem;
-  document.querySelector('#modal-root').innerHTML = `<div class="modal-backdrop" data-close-modal><div class="modal" role="dialog" aria-modal="true" aria-labelledby="post-title"><div class="modal-header"><div><h2 id="post-title">${isEdit ? 'Modifier l\'annonce' : 'Publier une annonce'}</h2><p>${isEdit ? 'Mettez à jour votre stock et prix.' : 'Quelques informations suffisent pour commencer.'}</p></div><button class="modal-close" data-close-modal aria-label="Fermer">${icon('close')}</button></div><form id="post-form"><div class="field-grid"><div class="field full"><label for="post-product">Quel produit avez-vous ?</label><input id="post-product" name="product" required placeholder="Ex. oignons violets" value="${isEdit ? escapeHtml(editItem.name) : ''}" /></div><div class="field"><label for="post-quantity">Quantité disponible</label><input id="post-quantity" name="quantity" required placeholder="Ex. 300 kg" value="${isEdit ? escapeHtml(editItem.quantity) : ''}" /></div><div class="field"><label for="post-price">Prix souhaité</label><input id="post-price" name="price" required placeholder="Ex. 450 F / kg" value="${isEdit ? escapeHtml(editItem.price) : ''}" /></div><div class="field"><label for="post-type">Type</label><select id="post-type" name="type"><option value="agriculture" ${isEdit && editItem.type==='agriculture' ? 'selected' : ''}>Agriculture</option><option value="peche" ${isEdit && editItem.type==='peche' ? 'selected' : ''}>Pêche</option></select></div><div class="field"><label for="post-place">Lieu de collecte</label><select id="post-place" name="place"><option ${!isEdit ? 'selected' : ''}>Dakar & alentours</option><option ${isEdit && editItem.location.includes('Thiès') ? 'selected' : ''}>Thiès</option><option ${isEdit && editItem.location.includes('Mbour') ? 'selected' : ''}>Mbour</option><option>Saint-Louis</option><option>Louga</option><option>Sangalkam</option><option>Notto Gouye Diama</option><option>Joal-Fadiouth</option></select></div><div class="field full"><label for="post-condition">État / Condition</label><select id="post-condition" name="condition"><option>Récolte du jour</option><option>Prêtes à partir</option><option>Disponible</option><option>Débarquées ce matin</option><option>Pêche artisanale</option><option>Nouveau</option></select></div></div><div class="record-box" style="margin-top:17px;margin-bottom:0"><button type="button" class="record-button" id="modal-record-button" aria-label="Dicter l'annonce">${icon('mic')}</button><div class="record-copy"><strong>Vous préférez parler ?</strong><span id="modal-record-status">Dictez votre annonce en wolof, pulaar ou sérère.</span></div></div><div class="modal-actions"><button type="button" class="outline-button" data-close-modal>Annuler</button><button type="submit" class="primary-button">${icon(isEdit ? 'edit' : 'upload')} ${isEdit ? 'Enregistrer' : 'Publier l’annonce'}</button></div></form></div></div>`;
+  document.querySelector('#modal-root').innerHTML = `<div class="modal-backdrop" data-close-modal><div class="modal" role="dialog" aria-modal="true" aria-labelledby="post-title"><div class="modal-header"><div><h2 id="post-title">${isEdit ? 'Modifier l\'annonce' : 'Publier une annonce'}</h2><p>${isEdit ? 'Mettez à jour votre stock et prix.' : 'Quelques informations suffisent pour commencer.'}</p></div><button class="modal-close" data-close-modal aria-label="Fermer">${icon('close')}</button></div><form id="post-form"><div class="field-grid"><div class="field full"><label for="post-product">Quel produit avez-vous ?</label><input id="post-product" name="product" required placeholder="Ex. oignons violets" value="${isEdit ? escapeHtml(editItem.name) : ''}" /></div><div class="field"><label for="post-quantity">Quantité disponible</label><input id="post-quantity" name="quantity" required placeholder="Ex. 300 kg" value="${isEdit ? escapeHtml(editItem.quantity) : ''}" /></div><div class="field"><label for="post-price">Prix souhaité</label><input id="post-price" name="price" required placeholder="Ex. 450 F / kg" value="${isEdit ? escapeHtml(editItem.price) : ''}" /></div><div class="field"><label for="post-type">Type</label><select id="post-type" name="type"><option value="agriculture" ${isEdit && editItem.type==='agriculture' ? 'selected' : ''}>Agriculture</option><option value="peche" ${isEdit && editItem.type==='peche' ? 'selected' : ''}>Pêche</option></select></div><div class="field"><label for="post-place">Lieu de collecte</label><select id="post-place" name="place"><option ${!isEdit ? 'selected' : ''}>Dakar & alentours</option><option ${isEdit && editItem.location.includes('Thiès') ? 'selected' : ''}>Thiès</option><option ${isEdit && editItem.location.includes('Mbour') ? 'selected' : ''}>Mbour</option><option>Saint-Louis</option><option>Louga</option><option>Sangalkam</option><option>Notto Gouye Diama</option><option>Joal-Fadiouth</option></select></div><div class="field full"><label for="post-condition">État / Condition</label><select id="post-condition" name="condition"><option>Récolte du jour</option><option>Prêtes à partir</option><option>Disponible</option><option>Débarquées ce matin</option><option>Pêche artisanale</option><option>Nouveau</option></select></div><div class="field full photo-upload-field"><label for="post-photos">Photos du produit <span class="field-hint">1 à 4 photos maximum</span></label><div class="photo-upload-box"><span data-icon="upload"></span><input id="post-photos" name="photos" type="file" accept="image/*" multiple ${!isEdit ? 'required' : ''} /><span class="photo-upload-label">Ajouter des photos</span></div><p class="photo-upload-help">Les photos seront compressées automatiquement. ${isEdit ? 'Sélectionner de nouvelles photos remplace les anciennes.' : 'Ajoutez au moins une photo pour publier.'}</p><div id="post-photo-preview" class="post-photo-preview ${existingPhotos.length ? 'has-photos' : ''}">${photoPreviewMarkup(existingPhotos)}</div><span id="post-photo-count" class="photo-count-label">${existingPhotos.length}/4 photo${existingPhotos.length > 1 ? 's' : ''}</span></div></div><div class="record-box" style="margin-top:17px;margin-bottom:0"><button type="button" class="record-button" id="modal-record-button" aria-label="Dicter l'annonce">${icon('mic')}</button><div class="record-copy"><strong>Vous préférez parler ?</strong><span id="modal-record-status">Dictez votre annonce en wolof, pulaar ou sérère.</span></div></div><div class="modal-actions"><button type="button" class="outline-button" data-close-modal>Annuler</button><button type="submit" class="primary-button">${icon(isEdit ? 'edit' : 'upload')} ${isEdit ? 'Enregistrer' : 'Publier l’annonce'}</button></div></form></div></div>`;
   hydrateIcons(document.querySelector('#modal-root'));
 }
 
@@ -1138,6 +1242,7 @@ function resetAudioButton(button) {
 
 // --- Render ---
 function render() {
+  stopPhotoCarousels();
   if (!state.currentUser) {
     if (state.authView === 'welcome') app.innerHTML = authWelcomeView();
     else app.innerHTML = authFormView();
@@ -1158,6 +1263,7 @@ function render() {
   const content = (views[state.view] || dashboardView)();
   app.innerHTML = renderAppShell(content);
   hydrateIcons(app);
+  startPhotoCarousels(app);
   const langSelect = document.querySelector('#language-select');
   if (langSelect) langSelect.value = state.language;
   // focus main for a11y
@@ -1246,6 +1352,21 @@ document.addEventListener('click', (event) => {
   const logoutBtn = event.target.closest('[data-action="logout"]');
   if (logoutBtn) { logout(); return; }
 
+  // Product detail gallery
+  const detailPhoto = event.target.closest('[data-detail-photo]');
+  if (detailPhoto) {
+    const item = state.listings.find((listing) => String(listing.id) === detailPhoto.dataset.detailPhoto);
+    const photos = item ? getProductPhotos(item) : [];
+    const index = Number(detailPhoto.dataset.photoIndex);
+    const mainImage = document.querySelector('#detail-main-image');
+    if (mainImage && photos[index]) {
+      mainImage.src = photos[index];
+      mainImage.alt = `${item.name} — photo ${index + 1} sur ${photos.length}`;
+      document.querySelectorAll('[data-detail-photo]').forEach((thumb) => thumb.classList.toggle('active', thumb === detailPhoto));
+    }
+    return;
+  }
+
   // Audio
   const audio = event.target.closest('[data-listen-text], [data-audio-key]');
   if (audio) { playAudio(audio.dataset.listenText || '', audio); return; }
@@ -1287,6 +1408,14 @@ document.addEventListener('click', (event) => {
     return;
   }
 
+  // Product cards open the full product detail popup.
+  const productCard = event.target.closest('[data-product-id]');
+  if (productCard && !event.target.closest('button, a, input, select, textarea')) {
+    const item = state.listings.find((listing) => String(listing.id) === productCard.dataset.productId);
+    if (item) openProductDetail(item);
+    return;
+  }
+
   // Language shortcut from the weather page
   if (event.target.closest('#weather-language')) {
     const select = document.querySelector('#language-select');
@@ -1316,7 +1445,11 @@ document.addEventListener('click', (event) => {
     openPostModal();
     return;
   }
-  if (event.target.closest('[data-close-modal]')) { closeModal(); return; }
+  const closeTarget = event.target.closest('[data-close-modal]');
+  if (closeTarget && (!closeTarget.classList.contains('modal-backdrop') || event.target === closeTarget)) {
+    closeModal();
+    return;
+  }
 
   // Filters
   const marketFilter = event.target.closest('[data-market-filter]');
@@ -1417,7 +1550,7 @@ document.addEventListener('input', (event) => {
   }
 });
 
-document.addEventListener('submit', (event) => {
+document.addEventListener('submit', async (event) => {
   if (event.target.id === 'login-form') {
     event.preventDefault();
     const form = new FormData(event.target);
@@ -1471,6 +1604,18 @@ document.addEventListener('submit', (event) => {
     const place = String(form.get('place')).trim();
     const condition = String(form.get('condition') || 'Disponible').trim();
     const stockNum = parseInt(quantity) || 100;
+    const photoFiles = form.getAll('photos').filter((file) => file && file.size > 0);
+    let photos = state.editingListing ? getProductPhotos(state.editingListing) : [];
+    try {
+      if (photoFiles.length) photos = await prepareProductPhotos(photoFiles);
+    } catch (error) {
+      showToast(error.message || 'Impossible d’ajouter ces photos.', 'error');
+      return;
+    }
+    if (!state.editingListing && photos.length === 0) {
+      showToast('Ajoutez au moins une photo du produit.', 'warning');
+      return;
+    }
     if (state.editingListing) {
       const idx = state.listings.findIndex(l => l.id === state.editingListing.id);
       if (idx >= 0) {
@@ -1483,6 +1628,7 @@ document.addEventListener('submit', (event) => {
           type,
           location: place || state.listings[idx].location,
           condition,
+          photos,
         };
         saveAll();
         closeModal();
@@ -1498,6 +1644,7 @@ document.addEventListener('submit', (event) => {
         type: type,
         emoji: type === 'peche' ? '🐟' : '🌱',
         image: '',
+        photos,
         condition: condition,
         location: place,
         price: price.replace(/\s+/g, ' ') || 'Prix à discuter',
@@ -1535,6 +1682,7 @@ document.addEventListener('submit', (event) => {
       type: 'agriculture',
       emoji: '🌱',
       image: '',
+      photos: [],
       condition: 'Annonce vocale',
       location: zone,
       price,
@@ -1557,6 +1705,38 @@ document.addEventListener('submit', (event) => {
 });
 
 document.addEventListener('change', (event) => {
+  if (event.target.id === 'post-photos') {
+    const input = event.target;
+    const files = [...(input.files || [])];
+    const existingPhotos = getProductPhotos(state.editingListing);
+    if (files.length > 4) {
+      input.value = '';
+      updatePostPhotoPreview(existingPhotos);
+      showToast('Vous pouvez ajouter 4 photos maximum.', 'warning');
+      return;
+    }
+    if (files.some((file) => !file.type.startsWith('image/'))) {
+      input.value = '';
+      updatePostPhotoPreview(existingPhotos);
+      showToast('Seuls les fichiers image sont acceptés.', 'warning');
+      return;
+    }
+    if (!files.length) {
+      updatePostPhotoPreview(existingPhotos);
+      return;
+    }
+    const previewToken = `${Date.now()}-${Math.random()}`;
+    input.dataset.previewToken = previewToken;
+    const preview = document.querySelector('#post-photo-preview');
+    if (preview) preview.innerHTML = '<div class="photo-preview-empty">Préparation des aperçus…</div>';
+    Promise.all(files.map(fileToDataUrl)).then((previewPhotos) => {
+      if (input.dataset.previewToken === previewToken) updatePostPhotoPreview(previewPhotos);
+    }).catch(() => {
+      updatePostPhotoPreview(existingPhotos);
+      showToast('Impossible de prévisualiser ces photos.', 'error');
+    });
+    return;
+  }
   if (event.target.id === 'language-select') {
     state.language = audioLanguages[event.target.value] ? event.target.value : 'fr';
     saveAll();
@@ -1569,6 +1749,13 @@ document.addEventListener('change', (event) => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') { closeModal(); const sb = document.querySelector('#sidebar'); if (sb) sb.classList.remove('open'); }
+  const productCard = event.target.closest('[data-product-id]');
+  if (productCard && (event.key === 'Enter' || event.key === ' ')
+    && !event.target.closest('button, a, input, select, textarea')) {
+    event.preventDefault();
+    const item = state.listings.find((listing) => String(listing.id) === productCard.dataset.productId);
+    if (item) openProductDetail(item);
+  }
 });
 
 // Close sidebar / notif panel when clicking outside
