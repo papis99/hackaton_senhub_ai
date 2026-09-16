@@ -59,6 +59,21 @@ const seedListings = [
   { id: 6, ownerId: 1, name: 'Bissap séché', type: 'agriculture', emoji: '🌺', image: '', condition: 'Nouveau', location: 'Touba Toul, Thiès', price: '2 200', unit: 'F / kg', quantity: '90 kg', stock: 90, seller: 'Boubacar Diallo', phone: '+221 78 480 63 31', initials: 'BD', tone: 'linear-gradient(135deg, #a66a9f, #633e62)', createdAt: Date.now() - 1000*60*60*24 },
 ];
 
+const weatherAlerts = [
+  { id: 'alert-pluie-thies', icon: 'droplet', tone: 'warning', audience: 'agriculture', title: 'Pluies fortes attendues', place: 'Thiès · Agriculture', tag: 'À surveiller', tagTone: 'orange', text: 'Des précipitations fortes sont attendues demain entre 15 h et 18 h. Protégez vos récoltes et vérifiez vos canaux de drainage.', time: 'Aujourd’hui, 10:24', audio: 'Alerte pluie forte attendue demain entre quinze heures et dix-huit heures dans la région de Thiès. Protégez vos récoltes.' },
+  { id: 'alert-mer-petite-cote', icon: 'waves', tone: 'danger', audience: 'peche', title: 'Vigilance en mer', place: 'Petite Côte · Pêche', tag: 'Important', tagTone: 'red', text: 'Vent de nord-ouest et houle forte cet après-midi. Rentrez avant 17 h et gardez vos gilets de sauvetage.', time: 'Aujourd’hui, 09:12', audio: 'Vigilance en mer. Vent de nord-ouest et houle forte cet après-midi. Rentrez avant dix-sept heures.' },
+  { id: 'alert-vent-niayes', icon: 'wind', tone: '', audience: 'agriculture', title: 'Vent favorable aux semis', place: 'Zone des Niayes · Agriculture', tag: 'Conseil', tagTone: '', text: 'Les conditions sont favorables à la préparation des planches. Semez tôt le matin et arrosez avec mesure.', time: 'Hier, 16:40', audio: 'Conseil de saison. Les conditions sont favorables à la préparation des planches. Semez tôt le matin.' },
+  { id: 'alert-securite-mbour', icon: 'shield', tone: '', audience: 'peche', title: 'Rappel sécurité en mer', place: 'Mbour · Pêche', tag: 'À retenir', tagTone: 'blue', text: 'Avant chaque sortie, vérifiez le carburant, la radio, les gilets et la météo. Prévenez un proche de votre itinéraire.', time: 'Hier, 08:05', audio: 'Rappel sécurité en mer. Vérifiez le carburant, la radio, les gilets et la météo avant chaque sortie.' },
+];
+
+const weatherForecast = [
+  { day: 'Aujourd’hui', emoji: '⛅', temp: '28°', label: 'Nuageux', today: true },
+  { day: 'Jeu 17', emoji: '🌧️', temp: '27°', label: 'Pluie forte' },
+  { day: 'Ven 18', emoji: '🌦️', temp: '29°', label: 'Averses' },
+  { day: 'Sam 19', emoji: '☀️', temp: '30°', label: 'Ensoleillé' },
+  { day: 'Dim 20', emoji: '☀️', temp: '31°', label: 'Ensoleillé' },
+];
+
 // --- State ---
 const ls = {
   get(k, fallback) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
@@ -79,6 +94,11 @@ const state = {
   favoritesMap: ls.get('jokko-favorites-map', {}), // userId -> [listingIds]
   inquiries: ls.get('jokko-inquiries', []),
   editingListing: null,
+  online: typeof navigator === 'undefined' ? true : navigator.onLine,
+  lastSync: ls.get('jokko-last-sync', Date.now()),
+  readAlertsMap: ls.get('jokko-read-alerts', {}),
+  notifOpen: false,
+  deferredInstall: null,
 };
 
 function saveAll() {
@@ -87,6 +107,8 @@ function saveAll() {
   ls.set('jokko-favorites-map', state.favoritesMap);
   ls.set('jokko-inquiries', state.inquiries);
   ls.set('jokko-language', state.language);
+  ls.set('jokko-last-sync', state.lastSync);
+  ls.set('jokko-read-alerts', state.readAlertsMap);
   if (state.currentUser) ls.set('jokko-auth', state.currentUser);
   else localStorage.removeItem('jokko-auth');
 }
@@ -126,6 +148,126 @@ function escapeHtml(value) {
 }
 function formatPhoneForTel(phone) { return phone.replaceAll(' ', '').replaceAll('+', ''); }
 
+
+function todayLabel() {
+  try {
+    const s = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  } catch {
+    return 'Mercredi 16 septembre 2026';
+  }
+}
+function timeAgo(ts) {
+  if (!ts) return 'jamais';
+  const mins = Math.max(0, Math.round((Date.now() - Number(ts)) / 60000));
+  if (mins < 1) return "à l'instant";
+  if (mins < 60) return `il y a ${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `il y a ${hours} h`;
+  return `il y a ${Math.round(hours / 24)} j`;
+}
+function getReadAlertIds() {
+  if (!state.currentUser) return [];
+  return state.readAlertsMap[String(state.currentUser.id)] || [];
+}
+function isAlertRead(id) {
+  return getReadAlertIds().includes(id);
+}
+function unreadAlerts() {
+  return weatherAlerts.filter((alert) => !isAlertRead(alert.id));
+}
+function markAllAlertsRead() {
+  if (!state.currentUser) return;
+  const key = String(state.currentUser.id);
+  const current = new Set(state.readAlertsMap[key] || []);
+  weatherAlerts.forEach((alert) => current.add(alert.id));
+  state.readAlertsMap[key] = [...current];
+  saveAll();
+}
+function relevantAlerts() {
+  const type = state.currentUser?.type;
+  return [...weatherAlerts].sort((a, b) => {
+    const score = (alert) => {
+      let value = 0;
+      if (alert.tone === 'danger') value += 4;
+      if (alert.tone === 'warning') value += 2;
+      if (type === 'peche' && alert.audience === 'peche') value += 3;
+      if (type !== 'peche' && alert.audience === 'agriculture') value += 3;
+      if (!isAlertRead(alert.id)) value += 1;
+      return value;
+    };
+    return score(b) - score(a);
+  });
+}
+function getWeatherNow() {
+  const user = state.currentUser;
+  const loc = user?.location || 'Dakar';
+  const isPeche = user?.type === 'peche';
+  return {
+    location: loc,
+    temp: isPeche ? 27 : 28,
+    desc: isPeche ? 'Ciel voilé, mer formée' : 'Partiellement nuageux',
+    emoji: isPeche ? '🌊' : '⛅',
+    wind: isPeche ? '28 km/h' : '18 km/h',
+    humidity: '71 %',
+    rain: isPeche ? '45 %' : '30 %',
+    midLabel: isPeche ? 'Houle' : 'Humidité',
+    midValue: isPeche ? '1,8 m' : '71 %',
+    isPeche,
+  };
+}
+function incomingInquiries() {
+  if (!state.currentUser) return [];
+  return state.inquiries.filter((item) => {
+    const listing = state.listings.find((listing) => listing.id === item.listingId);
+    return listing && listing.ownerId === state.currentUser.id;
+  });
+}
+function getTopNotifications() {
+  const items = unreadAlerts().map((alert) => ({
+    id: `w-${alert.id}`,
+    view: 'weather',
+    icon: alert.icon,
+    tone: alert.tone,
+    title: alert.title,
+    text: alert.text,
+    time: alert.time,
+  }));
+  if (state.currentUser?.role === 'producteur') {
+    incomingInquiries().filter((item) => item.status === 'pending').forEach((inq) => {
+      const listing = state.listings.find((item) => item.id === inq.listingId);
+      const buyer = state.users.find((item) => item.id === inq.buyerId);
+      items.push({
+        id: `i-${inq.id}`,
+        view: 'orders',
+        icon: 'phone',
+        tone: 'warning',
+        title: `${buyer?.name || 'Un acheteur'} est intéressé`,
+        text: listing ? `Demande pour ${listing.name}` : 'Nouvelle demande',
+        time: new Date(inq.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+      });
+    });
+  }
+  return items;
+}
+function notificationPanelHtml() {
+  const items = getTopNotifications();
+  return `<div class="notif-panel" id="notif-panel" role="menu">
+    <h3>Notifications ${items.length ? `(${items.length})` : ''}</h3>
+    ${items.length === 0 ? `<div class="notif-empty">Rien de nouveau. Les alertes lues restent disponibles hors ligne.</div>` : items.map((item) => `
+      <button class="notif-item" data-view="${item.view}">
+        <div class="alert-marker ${item.tone}">${icon(item.icon)}</div>
+        <div class="alert-copy">
+          <div class="alert-title-line"><strong>${escapeHtml(item.title)}</strong><time>${escapeHtml(item.time)}</time></div>
+          <p>${escapeHtml(item.text)}</p>
+        </div>
+      </button>
+    `).join('')}
+    ${unreadAlerts().length ? `<button class="text-button" style="width:100%;justify-content:center;padding:10px" data-view="weather">Ouvrir météo & alertes ${icon('arrow-right')}</button>` : ''}
+  </div>`;
+}
+
+
 function showToast(message, type = 'success') {
   const region = document.querySelector('#toast-region');
   const toast = document.createElement('div');
@@ -135,6 +277,19 @@ function showToast(message, type = 'success') {
   setTimeout(() => toast.remove(), 3600);
 }
 function closeModal() { document.querySelector('#modal-root').innerHTML = ''; }
+
+function openInstallHelp() {
+  document.querySelector('#modal-root').innerHTML = `<div class="modal-backdrop" data-close-modal><div class="modal" role="dialog" aria-modal="true" aria-labelledby="install-title"><div class="modal-header"><div><h2 id="install-title">Installer Jokko sur Android</h2><p>Aucune installation JDK n’est nécessaire. Jokko est une app web installable (PWA).</p></div><button class="modal-close" data-close-modal aria-label="Fermer">${icon('close')}</button></div>
+    <ol style="margin:0 0 16px;padding-left:18px;color:#5a6b60;font-size:12px;line-height:1.7">
+      <li>Ouvrez cette page dans <strong>Chrome</strong> sur votre téléphone.</li>
+      <li>Appuyez sur le menu <strong>⋮</strong> en haut à droite.</li>
+      <li>Choisissez <strong>Ajouter à l’écran d’accueil</strong> ou <strong>Installer l’application</strong>.</li>
+      <li>Ouvrez l’icône Jokko : l’app fonctionne <strong>hors ligne</strong>, avec météo et alertes en cache.</li>
+    </ol>
+    <div style="padding:12px 14px;border-radius:10px;background:#f0f8ed;border:1px solid #dceade;color:#4c6652;font-size:11px;line-height:1.5;margin-bottom:8px">Les données (annonces, alertes, météo) restent sur votre téléphone. Pas besoin de Java/JDK ni d’APK.</div>
+    <div class="modal-actions"><button type="button" class="outline-button" data-close-modal>Fermer</button><button type="button" class="primary-button" id="install-app">${icon('upload')} Installer maintenant</button></div></div></div>`;
+  hydrateIcons(document.querySelector('#modal-root'));
+}
 
 // --- Auth logic ---
 function login(phone, password) {
@@ -257,7 +412,8 @@ function authWelcomeView() {
         </button>
       </div>
       <div class="auth-card" style="text-align:center;padding:20px">
-        <p style="margin:0 0 12px;color:#5a6b60;font-size:11px;line-height:1.5">Jokko est une PWA mobile. Installez-la sur votre téléphone pour un accès rapide, même sans réseau.</p>
+        <p style="margin:0 0 12px;color:#5a6b60;font-size:11px;line-height:1.5">Jokko est une PWA mobile. Installez-la sur votre téléphone Android pour un accès rapide, même sans réseau. Pas besoin de JDK.</p>
+        <button class="primary-button" id="install-app" style="width:100%;margin-bottom:12px">${icon('upload')} Installer sur Android</button>
         <div style="display:flex;gap:8px;justify-content:center">
           <span class="tag">📱 App mobile</span><span class="tag orange">🔊 Vocal local</span><span class="tag blue">📶 Hors ligne</span>
         </div>
@@ -340,7 +496,7 @@ function getNavConfig() {
       { id: 'dashboard', label: 'Tableau de bord', icon: 'grid' },
       { id: 'products', label: 'Mes produits', icon: 'store', badge: ownCount },
       { id: 'market', label: 'Marché local', icon: 'search' },
-      { id: 'weather', label: 'Météo & alertes', icon: 'cloud-sun', badge: 3 },
+      { id: 'weather', label: 'Météo & alertes', icon: 'cloud-sun', badge: unreadAlerts().length, urgent: unreadAlerts().length > 0 },
       { id: 'voice', label: 'Ma voix', icon: 'mic', new: true },
       { id: 'orders', label: 'Demandes', icon: 'phone', badge: incoming },
     ];
@@ -372,13 +528,16 @@ function renderAppShell(contentHtml) {
     profile: 'Mon profil',
   };
 
+  const weatherUnread = role === 'producteur' ? unreadAlerts().length : 0;
+  const notifCount = getTopNotifications().length;
+  const topAlert = unreadAlerts().find((alert) => alert.tone === 'danger') || unreadAlerts().find((alert) => alert.tone === 'warning') || unreadAlerts()[0];
   const bottomNav = (() => {
     if (role === 'producteur') {
       return `
         <button class="bottom-nav-item ${state.view === 'dashboard' ? 'active' : ''}" data-view="dashboard"><span data-icon="grid"></span>Accueil</button>
         <button class="bottom-nav-item ${state.view === 'products' ? 'active' : ''}" data-view="products"><span data-icon="store"></span>Produits</button>
         <button class="bottom-nav-center" data-open-post aria-label="Publier"><span data-icon="plus"></span></button>
-        <button class="bottom-nav-item ${state.view === 'market' ? 'active' : ''}" data-view="market"><span data-icon="search"></span>Marché</button>
+        <button class="bottom-nav-item ${state.view === 'weather' ? 'active' : ''}" data-view="weather"><span data-icon="cloud-sun"></span>${weatherUnread ? `<i class="bottom-nav-badge">${weatherUnread}</i>` : ''}Météo</button>
         <button class="bottom-nav-item ${state.view === 'profile' ? 'active' : ''}" data-view="profile"><span data-icon="user"></span>Profil</button>
       `;
     } else {
@@ -407,7 +566,7 @@ function renderAppShell(contentHtml) {
         ${nav.map(item => `
           <button class="nav-item ${role === 'vendeur' ? 'vendeur-active' : ''} ${state.view === item.id ? 'active' : ''}" data-view="${item.id}">
             <span class="nav-icon" data-icon="${item.icon}"></span><span>${item.label}</span>
-            ${item.badge ? `<span class="nav-badge ${item.badge > 0 && role === 'vendeur' ? 'vendeur' : item.badge > 0 ? 'soft' : ''}">${item.badge}</span>` : ''}
+            ${item.badge ? `<span class="nav-badge ${item.urgent ? '' : role === 'vendeur' ? 'vendeur' : 'soft'}">${item.badge}</span>` : ''}
             ${item.new ? `<span class="nav-new">Nouveau</span>` : ''}
           </button>
         `).join('')}
@@ -417,11 +576,13 @@ function renderAppShell(contentHtml) {
         <button class="nav-item ${state.view === 'profile' ? 'active' : ''}" data-view="profile"><span class="nav-icon" data-icon="user"></span><span>Mon profil</span></button>
         <button class="nav-item" data-action="logout"><span class="nav-icon" data-icon="log-out"></span><span>Déconnexion</span></button>
       </nav>
-      <div class="offline-card">
-        <div class="offline-card-top"><span class="status-dot"></span><span>Mode hors ligne</span><span class="offline-check" data-icon="check"></span></div>
-        <p>${role === 'producteur' ? 'Vos annonces restent visibles sans réseau.' : 'Les prix et annonces sont accessibles hors ligne.'}</p>
-        <div class="sync-line"><span>Dernière synchro</span><strong>il y a 8 min</strong></div>
-        <button class="sync-button" id="sync-button"><span data-icon="refresh"></span> Synchroniser maintenant</button>
+      <div class="offline-card ${state.online ? '' : 'is-offline'}">
+        <div class="offline-card-top"><span class="status-dot"></span><span>${state.online ? 'Prêt hors ligne' : 'Hors ligne'}</span><span class="offline-check" data-icon="${state.online ? 'check' : 'cloud-sun'}"></span></div>
+        <p>${state.online
+          ? (role === 'producteur' ? 'Météo, alertes et annonces sont enregistrées sur cet appareil.' : 'Les prix et annonces restent accessibles sans réseau.')
+          : 'Pas de réseau. La météo, les alertes et vos données restent disponibles.'}</p>
+        <div class="sync-line"><span>Dernière synchro</span><strong>${timeAgo(state.lastSync)}</strong></div>
+        <button class="sync-button" id="sync-button"><span data-icon="refresh"></span> ${state.online ? 'Synchroniser maintenant' : 'En attente de réseau'}</button>
       </div>
       <div class="sidebar-footer">
         <button class="help-link" id="help-button"><span data-icon="help"></span>Besoin d'aide ?</button>
@@ -439,7 +600,8 @@ function renderAppShell(contentHtml) {
           <div class="breadcrumb"><span>Jokko</span><span class="breadcrumb-separator">/</span><strong id="breadcrumb-current">${breadcrumbNames[state.view] || 'Tableau de bord'}</strong></div>
         </div>
         <div class="topbar-actions">
-          <div class="connection-chip"><span class="status-dot"></span><span class="connection-label">En ligne</span></div>
+          <div class="connection-chip ${state.online ? '' : 'offline'}"><span class="status-dot"></span><span class="connection-label">${state.online ? 'En ligne' : 'Hors ligne'}</span></div>
+          ${state.deferredInstall ? `<button class="install-chip" id="install-app">Installer</button>` : ''}
           <div class="language-control">
             <span data-icon="globe"></span>
             <select id="language-select" aria-label="Choisir la langue">
@@ -447,10 +609,26 @@ function renderAppShell(contentHtml) {
             </select>
             <span data-icon="chevron-down"></span>
           </div>
-          <button class="icon-button notification-button" id="notification-button" aria-label="Notifications"><span data-icon="bell"></span><i></i></button>
+          <div class="notif-wrap">
+            <button class="icon-button notification-button ${notifCount ? 'has-unread' : ''}" id="notification-button" aria-label="Notifications">
+              <span data-icon="bell"></span>
+              ${notifCount ? `<b class="notif-count">${notifCount > 9 ? '9+' : notifCount}</b>` : ''}
+            </button>
+            ${state.notifOpen ? notificationPanelHtml() : ''}
+          </div>
           <div class="avatar avatar-top" style="background:${user.tone}" data-view="profile">${user.initials}</div>
         </div>
       </header>
+      ${role === 'producteur' && topAlert && state.view !== 'weather' ? `
+        <button class="alert-banner ${topAlert.tone === 'danger' ? 'critical' : ''}" data-view="weather">
+          <span class="alert-banner-icon">${icon(topAlert.tone === 'danger' ? 'alert' : topAlert.icon)}</span>
+          <span class="alert-banner-copy">
+            <strong>${unreadAlerts().length} nouvelle${unreadAlerts().length > 1 ? 's' : ''} alerte${unreadAlerts().length > 1 ? 's' : ''} météo</strong>
+            <span>${escapeHtml(topAlert.title)} — ${escapeHtml(topAlert.place)}</span>
+          </span>
+          <span class="alert-banner-badge">Ouvrir</span>
+        </button>
+      ` : ''}
       <main id="main-content" tabindex="-1">${contentHtml}</main>
     </div>
     <nav class="bottom-nav" aria-label="Navigation mobile">${bottomNav}</nav>
@@ -462,31 +640,47 @@ function dashboardProducteurView() {
   const user = state.currentUser;
   const myListings = state.listings.filter(l => l.ownerId === user.id);
   const myStock = myListings.reduce((sum, l) => sum + (l.stock || 0), 0);
-  const incoming = state.inquiries.filter(i => {
-    const listing = state.listings.find(l => l.id === i.listingId);
-    return listing && listing.ownerId === user.id;
-  });
-  const alertAudio = 'Alerte pluie forte attendue demain entre quinze heures et dix-huit heures dans la région de Thiès. Protégez vos récoltes et évitez les traitements aujourd’hui.';
+  const incoming = incomingInquiries();
+  const weather = getWeatherNow();
+  const unread = unreadAlerts();
+  const spotlight = relevantAlerts().slice(0, 3);
+  const criticalCount = unread.filter((alert) => alert.tone === 'danger' || alert.tone === 'warning').length;
   return `<section class="view dashboard-view">
     <div class="view-head">
-      <div><p class="eyebrow">Mardi 15 septembre 2026 · Espace producteur</p><h1>Bonjour ${escapeHtml(user.name.split(' ')[0])} <span>👋</span></h1><p class="subheading">Gérez vos récoltes, suivez la météo et répondez aux demandes des vendeurs.</p></div>
-      <div style="display:flex;gap:8px"><button class="outline-button" data-view="products">${icon('store')} Mes produits</button><button class="primary-button" data-open-post>${icon('plus')} Publier</button></div>
+      <div><p class="eyebrow">${todayLabel()} · Espace producteur</p><h1>Bonjour ${escapeHtml(user.name.split(' ')[0])} <span>👋</span></h1><p class="subheading">Météo, alertes et vos récoltes d’abord — même sans réseau.</p></div>
+      <div style="display:flex;gap:8px"><button class="outline-button" data-view="weather">${icon('cloud-sun')} Météo${unread.length ? ` (${unread.length})` : ''}</button><button class="primary-button" data-open-post>${icon('plus')} Publier</button></div>
     </div>
-    <div class="hero-grid">
-      <article class="briefing-card card">
-        <div class="briefing-content"><p class="eyebrow">Le point du matin · 2 min</p><h2>Votre marché vous attend aujourd'hui.</h2><p class="briefing-copy">Météo agricole, prix du marché et demandes des vendeurs : votre résumé vocal est prêt dans votre langue.</p></div>
-        <div class="briefing-bottom"><button class="audio-main" data-listen-text="Bonjour ${user.name}. Vous avez ${myListings.length} annonces actives avec ${myStock} kilos en stock. ${incoming.length} nouvelles demandes vous attendent. Une pluie forte est attendue demain à Thiès."><span class="audio-play">${icon('play')}</span><span class="audio-label"><span>Briefing producteur</span><small>Français · 01:42</small></span><span class="waveform"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></button><div class="language-pills"><span>Wolof</span><span>Pulaar</span><span>Sérère</span></div></div>
+    <div class="weather-hero">
+      <article class="weather-summary card weather-featured" data-view="weather">
+        <div class="weather-top"><span>${icon('map-pin')} ${escapeHtml(weather.location)} & alentours</span><span>${state.online ? 'Météo locale' : 'Cache hors ligne'} · ${icon('calendar')} Aujourd’hui</span></div>
+        <div class="weather-main"><div><div class="temperature">${weather.temp}<sup>°C</sup></div><p class="weather-description">${weather.desc}</p></div><div class="weather-icon">${weather.emoji}</div></div>
+        <div class="weather-meta"><div>Vent<strong>${weather.wind}</strong></div><div>${weather.midLabel}<strong>${weather.midValue}</strong></div><div>Pluie<strong>${weather.rain}</strong></div></div>
+        <div class="weather-cta">${unread.length ? `<span class="unread-pill">${unread.length} alerte${unread.length > 1 ? 's' : ''} non lue${unread.length > 1 ? 's' : ''}</span>` : `<span class="tag">Alertes à jour</span>`}<span class="text-button">Ouvrir météo & alertes ${icon('arrow-right')}</span></div>
       </article>
-      <article class="weather-summary card">
-        <div class="weather-top"><span>${icon('map-pin')} ${escapeHtml(user.location)} & alentours</span><span>${icon('calendar')} Aujourd’hui</span></div>
-        <div class="weather-main"><div><div class="temperature">28<sup>°C</sup></div><p class="weather-description">Partiellement nuageux</p></div><div class="weather-icon">⛅</div></div>
-        <div class="weather-meta"><div>Vent<strong>18 km/h</strong></div><div>Humidité<strong>71 %</strong></div><div>Pluie<strong>30 %</strong></div></div>
+      <article class="card alerts-spotlight">
+        <div class="card-header"><div><h2 class="card-title">Alertes à suivre</h2><p class="card-subtitle">${unread.length ? `${unread.length} nouvelle${unread.length > 1 ? 's' : ''} non ouverte${unread.length > 1 ? 's' : ''}` : 'Aucune nouvelle alerte'}</p></div><button class="text-button" data-view="weather">Tout voir ${icon('arrow-right')}</button></div>
+        <div class="alert-list">
+          ${spotlight.map((alert) => `
+            <button class="alert-item ${alert.tone === 'danger' ? 'critical' : ''} ${isAlertRead(alert.id) ? '' : 'unread'}" data-view="weather">
+              <div class="alert-marker ${alert.tone}">${icon(alert.icon)}</div>
+              <div class="alert-copy">
+                <div class="alert-title-line"><strong>${escapeHtml(alert.title)}</strong>${isAlertRead(alert.id) ? `<time>${alert.time}</time>` : `<span class="unread-dot">Nouveau</span>`}</div>
+                <p>${escapeHtml(alert.text)}</p>
+                <div class="alert-footer"><span class="alert-location">${icon('map-pin')} ${escapeHtml(alert.place)}</span><span class="tag ${alert.tagTone}">${alert.tag}</span></div>
+              </div>
+            </button>
+          `).join('')}
+        </div>
       </article>
     </div>
+    <article class="briefing-card card briefing-solo">
+      <div class="briefing-content"><p class="eyebrow">Le point du matin · 2 min</p><h2>Votre marché vous attend aujourd'hui.</h2><p class="briefing-copy">Météo agricole, prix du marché et demandes des vendeurs : votre résumé vocal est prêt dans votre langue.</p></div>
+      <div class="briefing-bottom"><button class="audio-main" data-listen-text="Bonjour ${user.name}. Vous avez ${myListings.length} annonces actives avec ${myStock} kilos en stock. ${incoming.length} nouvelles demandes vous attendent. ${unread.length} alertes météo ne sont pas encore ouvertes."><span class="audio-play">${icon('play')}</span><span class="audio-label"><span>Briefing producteur</span><small>Français · 01:42</small></span><span class="waveform"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></button><div class="language-pills"><span>Wolof</span><span>Pulaar</span><span>Sérère</span></div></div>
+    </article>
     <div class="stats-grid">
       <article class="stat-card"><div class="stat-icon">${icon('store')}</div><div class="stat-copy"><span>Mes annonces</span><strong>${myListings.length} actives</strong><small>${myStock} kg en stock</small></div></article>
       <article class="stat-card"><div class="stat-icon orange">${icon('phone')}</div><div class="stat-copy"><span>Demandes reçues</span><strong>${incoming.length} demandes</strong><small class="neutral">dont ${incoming.filter(i=>i.status==='pending').length} nouvelles</small></div></article>
-      <article class="stat-card"><div class="stat-icon blue">${icon('waves')}</div><div class="stat-copy"><span>Alertes non lues</span><strong>3 alertes</strong><small class="neutral">dont 1 importante</small></div></article>
+      <article class="stat-card" data-view="weather" style="cursor:pointer"><div class="stat-icon blue">${icon('waves')}</div><div class="stat-copy"><span>Alertes non lues</span><strong>${unread.length} alerte${unread.length > 1 ? 's' : ''}</strong><small class="${unread.length ? '' : 'neutral'}">${unread.length ? `${criticalCount} importante${criticalCount > 1 ? 's' : ''}` : 'Tout est lu'}</small></div></article>
     </div>
     <div class="content-grid">
       <article class="card alert-card"><div class="card-header"><div><h2 class="card-title">Mes dernières demandes</h2><p class="card-subtitle">${incoming.length} acheteurs intéressés</p></div><button class="text-button" data-view="orders">Tout voir ${icon('arrow-right')}</button></div>
@@ -612,16 +806,22 @@ function marketView() {
 }
 
 function weatherView() {
-  const alerts = [
-    { icon: 'droplet', tone: 'warning', title: 'Pluies fortes attendues', place: 'Thiès · Agriculture', tag: 'À surveiller', tagTone: 'orange', text: 'Des précipitations fortes sont attendues demain entre 15 h et 18 h. Protégez vos récoltes et vérifiez vos canaux de drainage.', time: 'Aujourd’hui, 10:24', audio: 'Alerte pluie forte attendue demain entre quinze heures et dix-huit heures dans la région de Thiès. Protégez vos récoltes.' },
-    { icon: 'waves', tone: 'danger', title: 'Vigilance en mer', place: 'Petite Côte · Pêche', tag: 'Important', tagTone: 'red', text: 'Vent de nord-ouest et houle forte cet après-midi. Rentrez avant 17 h et gardez vos gilets de sauvetage.', time: 'Aujourd’hui, 09:12', audio: 'Vigilance en mer. Vent de nord-ouest et houle forte cet après-midi. Rentrez avant dix-sept heures.' },
-    { icon: 'wind', tone: '', title: 'Vent favorable aux semis', place: 'Zone des Niayes · Agriculture', tag: 'Conseil', tagTone: '', text: 'Les conditions sont favorables à la préparation des planches. Semez tôt le matin et arrosez avec mesure.', time: 'Hier, 16:40', audio: 'Conseil de saison. Les conditions sont favorables à la préparation des planches. Semez tôt le matin.' },
-    { icon: 'shield', tone: '', title: 'Rappel sécurité en mer', place: 'Mbour · Pêche', tag: 'À retenir', tagTone: 'blue', text: 'Avant chaque sortie, vérifiez le carburant, la radio, les gilets et la météo. Prévenez un proche de votre itinéraire.', time: 'Hier, 08:05', audio: 'Rappel sécurité en mer. Vérifiez le carburant, la radio, les gilets et la météo avant chaque sortie.' }
-  ];
-  return `<section class="view inner-view weather-view"><div class="view-head"><div><p class="eyebrow">Informations officielles · Accès libre</p><h1>Météo & alertes</h1><p class="subheading">Des messages courts, utiles et disponibles à l’écoute dans votre langue. Les alertes sont conservées sur votre téléphone.</p></div><div class="header-actions"><button class="outline-button" id="weather-language">${icon('globe')} Wolof · Pulaar · Sérère</button></div></div>
-    <div class="card page-card"><div class="card-header"><div><h2 class="card-title">Alertes récentes</h2><p class="card-subtitle">Source : ANACIM · Mise à jour automatique</p></div><div class="header-icon">${icon('cloud-sun')}</div></div><div class="large-alert-list">${alerts.map((alert) => `<article class="large-alert ${alert.tone === 'danger' ? 'critical' : ''}"><div class="alert-marker ${alert.tone}">${icon(alert.icon)}</div><div class="large-alert-content"><h3>${alert.title}</h3><p>${alert.text}</p><div class="alert-meta-row"><span>${icon('map-pin')} ${alert.place}</span><span class="tag ${alert.tagTone}">${alert.tag}</span></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:11px"><span style="color:#a2ada5;font-size:9px">${alert.time}</span><button class="mini-audio" data-listen-text="${escapeHtml(alert.audio)}">${icon('play')}<span>Écouter</span></button></div></div></article>`).join('')}</div></div>
-    <div class="section-heading"><div><h2>Prévisions à 5 jours</h2><p>Dakar & zone des Niayes</p></div><span class="tag">Actualisé maintenant</span></div>
-    <div class="card page-card"><div class="forecast-row"><div class="forecast-day today"><span>Aujourd’hui</span><em>⛅</em><strong>28°</strong><small>Nuageux</small></div><div class="forecast-day"><span>Mer 16</span><em>🌧️</em><strong>27°</strong><small>Pluie forte</small></div><div class="forecast-day"><span>Jeu 17</span><em>🌦️</em><strong>29°</strong><small>Averses</small></div><div class="forecast-day"><span>Ven 18</span><em>☀️</em><strong>30°</strong><small>Ensoleillé</small></div><div class="forecast-day"><span>Sam 19</span><em>☀️</em><strong>31°</strong><small>Ensoleillé</small></div></div></div>
+  const weather = getWeatherNow();
+  const alerts = relevantAlerts();
+  return `<section class="view inner-view weather-view"><div class="view-head"><div><p class="eyebrow">Informations officielles · ${state.online ? 'En ligne' : 'Hors ligne'}</p><h1>Météo & alertes</h1><p class="subheading">Messages courts, utiles, disponibles à l’écoute. Conservés sur votre téléphone même sans réseau.</p></div><div class="header-actions"><button class="outline-button" id="weather-language">${icon('globe')} Wolof · Pulaar · Sérère</button></div></div>
+    ${state.online ? '' : `<div class="weather-offline-note">${icon('cloud-sun')} Hors ligne — vous consultez la dernière météo enregistrée (${timeAgo(state.lastSync)}).</div>`}
+    <div class="weather-now">
+      <article class="weather-summary card">
+        <div class="weather-top"><span>${icon('map-pin')} ${escapeHtml(weather.location)} & alentours</span><span>${icon('calendar')} Aujourd’hui</span></div>
+        <div class="weather-main"><div><div class="temperature">${weather.temp}<sup>°C</sup></div><p class="weather-description">${weather.desc}</p></div><div class="weather-icon">${weather.emoji}</div></div>
+        <div class="weather-meta"><div>Vent<strong>${weather.wind}</strong></div><div>${weather.midLabel}<strong>${weather.midValue}</strong></div><div>Pluie<strong>${weather.rain}</strong></div></div>
+      </article>
+      <article class="card page-card" style="margin:0">
+        <div class="card-header"><div><h2 class="card-title">Prévisions à 5 jours</h2><p class="card-subtitle">${escapeHtml(weather.location)} · cache local</p></div><span class="tag">${state.online ? 'Actualisé' : 'Hors ligne'}</span></div>
+        <div class="forecast-row" style="padding-bottom:18px">${weatherForecast.map((day) => `<div class="forecast-day ${day.today ? 'today' : ''}"><span>${day.day}</span><em>${day.emoji}</em><strong>${day.temp}</strong><small>${day.label}</small></div>`).join('')}</div>
+      </article>
+    </div>
+    <div class="card page-card"><div class="card-header"><div><h2 class="card-title">Alertes récentes</h2><p class="card-subtitle">Source : ANACIM · ${alerts.length} messages conservés hors ligne</p></div><div class="header-icon">${icon('cloud-sun')}</div></div><div class="large-alert-list">${alerts.map((alert) => `<article class="large-alert ${alert.tone === 'danger' ? 'critical' : ''}"><div class="alert-marker ${alert.tone}">${icon(alert.icon)}</div><div class="large-alert-content"><h3>${alert.title}</h3><p>${alert.text}</p><div class="alert-meta-row"><span>${icon('map-pin')} ${alert.place}</span><span class="tag ${alert.tagTone}">${alert.tag}</span></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:11px"><span style="color:#a2ada5;font-size:9px">${alert.time}</span><button class="mini-audio" data-listen-text="${escapeHtml(alert.audio)}">${icon('play')}<span>Écouter</span></button></div></div></article>`).join('')}</div></div>
   </section>`;
 }
 
@@ -722,6 +922,7 @@ function profileView() {
           <div class="profile-stat"><span>Membre depuis</span><strong style="font-size:11px">Sept 2026</strong></div>
         </div>
         <div class="profile-actions">
+          <button class="outline-button" id="install-app">${icon('upload')} Installer sur Android</button>
           <button class="outline-button" id="edit-profile-btn">${icon('edit')} Modifier profil</button>
           <button class="logout-btn" data-action="logout">${icon('log-out')} Déconnexion</button>
         </div>
@@ -840,7 +1041,9 @@ function render() {
 }
 
 function setView(view) {
+  if (view === 'weather' && state.currentUser) markAllAlertsRead();
   state.view = view;
+  state.notifOpen = false;
   render();
   const sidebar = document.querySelector('#sidebar');
   if (sidebar && window.innerWidth < 821) sidebar.classList.remove('open');
@@ -1000,13 +1203,42 @@ document.addEventListener('click', (event) => {
 
   if (event.target.closest('#sync-button')) {
     const button = event.target.closest('#sync-button');
+    if (!state.online) {
+      showToast('Pas de réseau. Jokko continue hors ligne avec la météo en cache.', 'warning');
+      return;
+    }
     button.disabled = true;
     button.innerHTML = `${icon('refresh')} Synchronisation…`;
     hydrateIcons(button);
-    setTimeout(() => { button.disabled = false; button.innerHTML = `${icon('check')} Tout est à jour`; hydrateIcons(button); showToast('3 éléments ont été synchronisés.', 'success'); }, 1300);
+    setTimeout(() => {
+      state.lastSync = Date.now();
+      saveAll();
+      button.disabled = false;
+      button.innerHTML = `${icon('check')} Tout est à jour`;
+      hydrateIcons(button);
+      showToast('Météo, alertes et annonces synchronisées.', 'success');
+      const syncLine = document.querySelector('.sync-line strong');
+      if (syncLine) syncLine.textContent = timeAgo(state.lastSync);
+    }, 1100);
     return;
   }
-  if (event.target.closest('#notification-button')) { showToast('Vous avez 3 alertes importantes à écouter.', 'success'); return; }
+  if (event.target.closest('#install-app')) {
+    if (state.deferredInstall) {
+      state.deferredInstall.prompt();
+      state.deferredInstall.userChoice.finally(() => {
+        state.deferredInstall = null;
+        render();
+      });
+    } else {
+      openInstallHelp();
+    }
+    return;
+  }
+  if (event.target.closest('#notification-button')) {
+    state.notifOpen = !state.notifOpen;
+    render();
+    return;
+  }
   if (event.target.closest('#help-button')) { showToast('Besoin d’aide ? Appelez le 800 00 00 00.', 'success'); return; }
   if (event.target.closest('#mobile-menu')) { document.querySelector('#sidebar').classList.toggle('open'); return; }
   if (event.target.closest('#record-button')) {
@@ -1201,12 +1433,42 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') { closeModal(); const sb = document.querySelector('#sidebar'); if (sb) sb.classList.remove('open'); }
 });
 
-// Close sidebar when clicking outside on mobile
+// Close sidebar / notif panel when clicking outside
 document.addEventListener('click', (e) => {
   const sidebar = document.querySelector('#sidebar');
   const menuBtn = document.querySelector('#mobile-menu');
-  if (!sidebar || window.innerWidth > 820) return;
-  if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !menuBtn?.contains(e.target)) {
+  if (sidebar && window.innerWidth < 821 && sidebar.classList.contains('open') && !sidebar.contains(e.target) && !menuBtn?.contains(e.target)) {
     sidebar.classList.remove('open');
   }
+  if (state.notifOpen) {
+    const wrap = document.querySelector('.notif-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+      state.notifOpen = false;
+      const panel = document.querySelector('#notif-panel');
+      if (panel) panel.remove();
+    }
+  }
 });
+
+window.addEventListener('online', () => {
+  state.online = true;
+  state.lastSync = Date.now();
+  saveAll();
+  if (state.currentUser) render();
+  showToast('Connexion rétablie. Météo et alertes synchronisées.', 'success');
+});
+window.addEventListener('offline', () => {
+  state.online = false;
+  if (state.currentUser) render();
+  showToast('Hors ligne. Jokko continue avec la météo en cache.', 'warning');
+});
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  state.deferredInstall = event;
+});
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}

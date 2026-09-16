@@ -608,6 +608,7 @@ h1 span { font-family: 'DM Sans', sans-serif; }
   .section-heading .text-button { margin-top: 3px; }
   .topbar-actions .language-control { display: none; }
   .connection-chip { display: none; }
+  .connection-chip.offline { display: flex; }
   .forecast-row { overflow-x: auto; grid-template-columns: repeat(5, 92px); }
   .voice-intro, .voice-form-card { padding: 22px; }
   .form-divider { margin-right: -22px; margin-left: -22px; }
@@ -615,4 +616,233 @@ h1 span { font-family: 'DM Sans', sans-serif; }
   .auth-card { padding: 22px 18px 18px; }
   .auth-shell { padding: 16px 12px; }
   .profile-view-grid { gap: 14px; }
+}
+ine */
+.weather-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, .95fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.weather-featured {
+  cursor: pointer;
+  min-height: 280px;
+  background: linear-gradient(180deg, #e7f4ec 0%, #eef5ee 100%);
+  border: 1.5px solid #cfe5d6;
+  transition: transform .18s, border-color .18s;
+}
+.weather-featured:hover { border-color: var(--green); transform: translateY(-1px); }
+.weather-cta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #dae7dc;
+}
+.unread-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 20px;
+  background: var(--red-pale);
+  color: var(--red);
+  font-size: 9px;
+  font-weight: 700;
+}
+.unread-pill:before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 0 3px rgba(216, 92, 79, .18);
+}
+.alerts-spotlight { overflow: hidden; }
+.alerts-spotlight .alert-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border-radius: 10px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.alerts-spotlight .alert-item:hover { background: #f6fbf5; }
+.alert-item.unread { background: #fffdf6; }
+.alert-item.critical { background: #fff8f6; }
+.unread-dot {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--red);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
+.briefing-solo { min-height: 210px; }
+
+.alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 4.5% 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #fff4ec;
+  border: 1px solid #f0d7b3;
+  cursor: pointer;
+  text-align: left;
+  width: auto;
+  max-width: none;
+}
+.alert-banner.critical {
+  background: var(--red-pale);
+  border-color: #f1d3cc;
+}
+.alert-banner-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--red);
+  flex: 0 0 36px;
+}
+.alert-banner-icon svg { width: 18px; height: 18px; }
+.alert-banner-copy { min-width: 0; flex: 1; }
+.alert-banner-copy strong { display: block; font-size: 12px; color: #3d4c43; }
+.alert-banner-copy span { display: block; margin-top: 3px; color: #7a6a58; font-size: 10px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alert-banner-badge {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--green);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+}
+.alert-banner.critical .alert-banner-badge { background: var(--red); }
+
+.notif-wrap { position: relative; }
+.notif-count {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--red);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fbfcf8;
+  font-style: normal;
+}
+.notification-button.has-unread { color: var(--green); background: #eef3ec; }
+.notification-button.has-unread i { display: none; }
+.notif-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(340px, calc(100vw - 24px));
+  max-height: min(420px, 70vh);
+  overflow: auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(34, 55, 44, .16);
+  z-index: 20;
+  padding: 8px;
+}
+.notif-panel h3 {
+  margin: 8px 10px 10px;
+  font: 600 12px/1.2 'Space Grotesk', sans-serif;
+  color: #293a30;
+}
+.notif-item {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  border-radius: 10px;
+  background: transparent;
+}
+.notif-item:hover { background: #f6fbf5; }
+.notif-empty { padding: 24px 12px; text-align: center; color: #9aa59d; font-size: 11px; }
+
+.connection-chip.offline { color: #a66a2a; }
+.connection-chip.offline .status-dot {
+  background: var(--orange);
+  box-shadow: 0 0 0 3px rgba(243, 163, 68, .2);
+}
+.offline-card.is-offline { background: #fff7e8; border-color: #f0d7b3; }
+.offline-card.is-offline .offline-card-top { color: #8a5a22; }
+.offline-card.is-offline .offline-check { background: var(--orange); }
+
+.bottom-nav-item { position: relative; }
+.bottom-nav-badge {
+  position: absolute;
+  top: 2px;
+  right: 18%;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--red);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 15px;
+  font-style: normal;
+}
+
+.install-chip {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--green-dark);
+  background: var(--lime);
+  border: 0;
+}
+.weather-now {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.large-alert.unread { box-shadow: inset 3px 0 0 var(--red); }
+.weather-offline-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff7e8;
+  border: 1px solid #f0d7b3;
+  color: #8a5a22;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+@media (max-width: 820px) {
+  .weather-hero, .weather-now { grid-template-columns: 1fr; }
+  .alert-banner { margin: 10px 16px 0; }
+}
+@media (max-width: 570px) {
+  .alert-banner { padding: 10px 12px; }
+  .alert-banner-copy span { white-space: normal; }
 }
