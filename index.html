@@ -2,81 +2,15 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f7f7f2" />
-    <meta name="description" content="Jokko, les alertes, les prix et les annonces agricoles et halieutiques, dans votre langue." />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#116b4f" />
+    <meta name="description" content="Jokko, la voix du marché pour les agriculteurs, pêcheurs et vendeurs du Sénégal. App mobile PWA avec deux interfaces dédiées." />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <title>Jokko — La voix du marché</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='10' fill='%23116b4f'/%3E%3Ccircle cx='22' cy='8' r='6' fill='%23d6f35a'/%3E%3C/svg%3E" />
+    <title>Jokko — La voix du terrain</title>
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="sidebar" id="sidebar">
-        <div class="brand-lockup">
-          <div class="brand-mark" aria-hidden="true"><span></span><i></i></div>
-          <div>
-            <div class="brand-name">jokko</div>
-            <div class="brand-tagline">la voix du terrain</div>
-          </div>
-        </div>
-
-        <div class="sidebar-label">Espace principal</div>
-        <nav class="main-nav" aria-label="Navigation principale">
-          <button class="nav-item active" data-view="dashboard"><span class="nav-icon" data-icon="grid"></span><span>Tableau de bord</span></button>
-          <button class="nav-item" data-view="weather"><span class="nav-icon" data-icon="cloud-sun"></span><span>Météo & alertes</span><span class="nav-badge">3</span></button>
-          <button class="nav-item" data-view="prices"><span class="nav-icon" data-icon="chart"></span><span>Prix du marché</span></button>
-          <button class="nav-item" data-view="market"><span class="nav-icon" data-icon="store"></span><span>Annonces</span><span class="nav-badge soft">12</span></button>
-        </nav>
-
-        <div class="sidebar-label sidebar-label-secondary">Mon activité</div>
-        <nav class="main-nav" aria-label="Mon activité">
-          <button class="nav-item" data-view="voice"><span class="nav-icon" data-icon="mic"></span><span>Ma voix</span><span class="nav-new">Nouveau</span></button>
-          <button class="nav-item" data-view="saved"><span class="nav-icon" data-icon="bookmark"></span><span>Mes favoris</span></button>
-        </nav>
-
-        <div class="offline-card">
-          <div class="offline-card-top"><span class="status-dot"></span><span>Mode hors ligne</span><span class="offline-check" data-icon="check"></span></div>
-          <p>Vos données restent disponibles sans réseau.</p>
-          <div class="sync-line"><span>Dernière synchro</span><strong>il y a 8 min</strong></div>
-          <button class="sync-button" id="sync-button"><span data-icon="refresh"></span> Synchroniser maintenant</button>
-        </div>
-
-        <div class="sidebar-footer">
-          <button class="help-link" id="help-button"><span data-icon="help"></span>Besoin d'aide ?</button>
-          <div class="profile-mini">
-            <div class="avatar avatar-photo">BD</div>
-            <div class="profile-copy"><strong>Boubacar Diallo</strong><span>Mon espace</span></div>
-            <span data-icon="chevron-down" class="profile-chevron"></span>
-          </div>
-        </div>
-      </aside>
-
-      <div class="page-shell">
-        <header class="topbar">
-          <div class="topbar-left">
-            <button class="mobile-menu" id="mobile-menu" aria-label="Ouvrir le menu"><span data-icon="menu"></span></button>
-            <div class="breadcrumb"><span>Jokko</span><span class="breadcrumb-separator">/</span><strong id="breadcrumb-current">Tableau de bord</strong></div>
-          </div>
-          <div class="topbar-actions">
-            <div class="connection-chip"><span class="status-dot"></span><span class="connection-label">En ligne</span></div>
-            <div class="language-control">
-              <span data-icon="globe"></span>
-              <select id="language-select" aria-label="Choisir la langue">
-                <option value="fr">Français</option>
-                <option value="wo">Wolof</option>
-                <option value="ff">Pulaar</option>
-                <option value="srr">Sérère</option>
-              </select>
-              <span data-icon="chevron-down"></span>
-            </div>
-            <button class="icon-button notification-button" id="notification-button" aria-label="Notifications"><span data-icon="bell"></span><i></i></button>
-            <div class="avatar avatar-top">BD</div>
-          </div>
-        </header>
-
-        <main id="app" tabindex="-1"></main>
-      </div>
-    </div>
-
+    <div id="app" tabindex="-1"></div>
     <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
     <div id="modal-root"></div>
     <script type="module" src="/src/app.js"></script>
